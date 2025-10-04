@@ -1,46 +1,148 @@
 import type { ToastOptions } from './types';
 
+// --- STATE ---
 let currentToast: HTMLDivElement | null = null;
 let toastTimeout: number | null = null;
 let copyTimeout: number | null = null;
+let currentModal: HTMLDivElement | null = null;
 
-// Listen for messages from background script
-// Use an async wrapper to allow `await` inside the listener
+// --- MESSAGE LISTENER ---
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Content script received message:', message);
+
   if (message.type === 'SHOW_TOAST') {
     (async () => {
       await showToast(message.payload);
       sendResponse({ success: true });
     })();
-    // Return true to indicate we will send a response asynchronously
-    return true;
+    return true; // Indicate async response
   }
-  // If not a toast message, respond synchronously
+
+  if (message.type === 'SHOW_PROMPT_MODAL') {
+    showPromptModal(message.payload.selectionText, message.payload.manualPrompt);
+    sendResponse({ success: true });
+    return false;
+  }
+
   sendResponse({ success: true });
   return false;
 });
 
-// Refactored to be async to handle the promise-based storage API
-async function showToast(options: ToastOptions) {
-  console.log('Showing toast:', options);
+// --- MODAL IMPLEMENTATION ---
+function showPromptModal(selectionText: string, defaultPrompt: string) {
+  dismissPromptModal();
 
-  // Await the settings from storage
+  const backdrop = document.createElement('div');
+  backdrop.id = 'ask-llm-modal-container';
+  document.body.appendChild(backdrop);
+
+  const shadowRoot = backdrop.attachShadow({ mode: 'open' });
+
+  const styleLink = document.createElement('link');
+  styleLink.rel = 'stylesheet';
+  styleLink.href = chrome.runtime.getURL('styles/modal.css');
+  shadowRoot.appendChild(styleLink);
+
+  const modalBackdrop = document.createElement('div');
+  modalBackdrop.className = 'ask-llm-modal-backdrop';
+  modalBackdrop.addEventListener('click', dismissPromptModal);
+
+  const dialog = document.createElement('div');
+  dialog.className = 'ask-llm-modal-dialog';
+  dialog.addEventListener('click', (e) => e.stopPropagation());
+
+  const header = document.createElement('div');
+  header.className = 'ask-llm-modal-header';
+  const title = document.createElement('h2');
+  title.textContent = 'Ask LLM';
+  header.appendChild(title);
+
+  const body = document.createElement('div');
+  body.className = 'ask-llm-modal-body';
+
+  const textarea = document.createElement('textarea');
+  textarea.placeholder = 'Enter your prompt...';
+  textarea.value = defaultPrompt;
+  textarea.maxLength = 200;
+
+  const charCount = document.createElement('div');
+  charCount.className = 'ask-llm-modal-char-count';
+  const updateCharCount = () => {
+      charCount.textContent = `${textarea.value.length} / ${textarea.maxLength}`;
+  };
+  textarea.addEventListener('input', updateCharCount);
+  updateCharCount();
+
+  body.appendChild(textarea);
+  body.appendChild(charCount);
+
+  const footer = document.createElement('div');
+  footer.className = 'ask-llm-modal-footer';
+
+  const cancelBtn = document.createElement('button');
+  cancelBtn.className = 'ask-llm-modal-btn ask-llm-modal-btn-secondary';
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.onclick = dismissPromptModal;
+
+  const submitBtn = document.createElement('button');
+  submitBtn.className = 'ask-llm-modal-btn ask-llm-modal-btn-primary';
+  submitBtn.textContent = 'Submit';
+  submitBtn.onclick = () => {
+      const userPrompt = textarea.value.trim();
+      if (userPrompt) {
+          chrome.runtime.sendMessage({
+              type: 'EXECUTE_MANUAL_PROMPT',
+              payload: {
+                  selectionText,
+                  prompt: userPrompt,
+              },
+          });
+          dismissPromptModal();
+      }
+  };
+
+  footer.appendChild(cancelBtn);
+  footer.appendChild(submitBtn);
+
+  dialog.appendChild(header);
+  dialog.appendChild(body);
+  dialog.appendChild(footer);
+  modalBackdrop.appendChild(dialog);
+  shadowRoot.appendChild(modalBackdrop);
+
+  currentModal = backdrop;
+
+  document.addEventListener('keydown', handleEscapeForModal);
+
+  textarea.focus();
+  textarea.select();
+}
+
+function handleEscapeForModal(e: KeyboardEvent) {
+  if (e.key === 'Escape') {
+      dismissPromptModal();
+  }
+}
+
+function dismissPromptModal() {
+  if (currentModal) {
+      currentModal.remove();
+      currentModal = null;
+  }
+  document.removeEventListener('keydown', handleEscapeForModal);
+}
+
+// --- TOAST IMPLEMENTATION ---
+async function showToast(options: ToastOptions) {
   const result = await chrome.storage.local.get('settings');
   const position = result.settings?.toastPosition || options.position || 'bottom-right';
-
-  // createToast now handles dismissal to ensure the operation is atomic
   createToast(options, position);
 }
 
 function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-right') {
-  // THE FIX: Always dismiss the previous toast *before* creating a new one.
-  // This prevents a race condition where a second toast could be created
-  // before the first one is dismissed.
   dismissToast();
   const { message, type, duration = 20000 } = options;
 
-  // Create container with Shadow DOM
   const container = document.createElement('div');
   container.id = 'ask-llm-toast-container';
   container.style.cssText = `
@@ -52,13 +154,11 @@ function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-ri
 
   const shadowRoot = container.attachShadow({ mode: 'open' });
 
-  // Create toast element
   const toast = document.createElement('div');
   toast.className = `ask-llm-toast toast-${type}`;
   toast.setAttribute('role', 'alert');
   toast.setAttribute('aria-live', 'polite');
 
-  // Apply styles
   const style = document.createElement('style');
   style.textContent = `
     .ask-llm-toast {
@@ -144,16 +244,13 @@ function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-ri
 
   shadowRoot.appendChild(style);
 
-  // Create content
   const contentDiv = document.createElement('div');
   contentDiv.className = 'toast-content';
   contentDiv.textContent = message;
 
-  // Create actions
   const actionsDiv = document.createElement('div');
   actionsDiv.className = 'toast-actions';
 
-  // Copy button (only for success messages)
   if (type === 'success') {
     const copyBtn = document.createElement('button');
     copyBtn.className = 'toast-btn copy-btn';
@@ -162,7 +259,6 @@ function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-ri
     copyBtn.onclick = () => {
       navigator.clipboard.writeText(message);
       copyBtn.textContent = 'Copied!';
-      // Clear any existing timeout to prevent race conditions
       if (copyTimeout !== null) {
         clearTimeout(copyTimeout);
       }
@@ -173,7 +269,6 @@ function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-ri
     actionsDiv.appendChild(copyBtn);
   }
 
-  // Close button
   const closeBtn = document.createElement('button');
   closeBtn.className = 'toast-btn close-btn';
   closeBtn.textContent = '×';
@@ -188,16 +283,14 @@ function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-ri
 
   currentToast = container;
 
-  // Auto-dismiss after duration (if duration > 0)
   if (duration > 0) {
     toastTimeout = window.setTimeout(dismissToast, duration);
   }
 
-  // Add keyboard listener for Escape
-  document.addEventListener('keydown', handleEscape);
+  document.addEventListener('keydown', handleEscapeForToast);
 }
 
-function handleEscape(e: KeyboardEvent) {
+function handleEscapeForToast(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     dismissToast();
   }
@@ -208,7 +301,6 @@ function dismissToast() {
     currentToast.remove();
     currentToast = null;
   }
-  // Use `!== null` to correctly handle timeout IDs that might be 0
   if (toastTimeout !== null) {
     clearTimeout(toastTimeout);
     toastTimeout = null;
@@ -217,5 +309,5 @@ function dismissToast() {
     clearTimeout(copyTimeout);
     copyTimeout = null;
   }
-  document.removeEventListener('keydown', handleEscape);
+  document.removeEventListener('keydown', handleEscapeForToast);
 }

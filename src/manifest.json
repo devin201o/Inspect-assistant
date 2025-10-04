@@ -45,5 +45,15 @@
       },
       "description": "Toggle Ask LLM on/off"
     }
-  }
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "styles/modal.css"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ]
 }
