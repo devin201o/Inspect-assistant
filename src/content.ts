@@ -4,31 +4,39 @@ let currentToast: HTMLDivElement | null = null;
 let toastTimeout: number | null = null;
 
 // Listen for messages from background script
+// Use an async wrapper to allow `await` inside the listener
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   console.log('Content script received message:', message);
   if (message.type === 'SHOW_TOAST') {
-    showToast(message.payload);
+    (async () => {
+      await showToast(message.payload);
+      sendResponse({ success: true });
+    })();
+    // Return true to indicate we will send a response asynchronously
+    return true;
   }
-  // Always send a response to avoid connection errors
-  sendResponse({success: true});
-  return true; // Keep the message channel open
+  // If not a toast message, respond synchronously
+  sendResponse({ success: true });
+  return false;
 });
 
-function showToast(options: ToastOptions) {
+// Refactored to be async to handle the promise-based storage API
+async function showToast(options: ToastOptions) {
   console.log('Showing toast:', options);
-  // Remove existing toast
-  if (currentToast) {
-    dismissToast();
-  }
 
-  // Get settings for position
-  chrome.storage.local.get('settings', (result) => {
-    const position = result.settings?.toastPosition || options.position || 'bottom-right';
-    createToast(options, position);
-  });
+  // Await the settings from storage
+  const result = await chrome.storage.local.get('settings');
+  const position = result.settings?.toastPosition || options.position || 'bottom-right';
+
+  // createToast now handles dismissal to ensure the operation is atomic
+  createToast(options, position);
 }
 
 function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-right') {
+  // THE FIX: Always dismiss the previous toast *before* creating a new one.
+  // This prevents a race condition where a second toast could be created
+  // before the first one is dismissed.
+  dismissToast();
   const { message, type, duration = 20000 } = options;
 
   // Create container with Shadow DOM
