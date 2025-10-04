@@ -2,6 +2,7 @@ import type { ToastOptions } from './types';
 
 let currentToast: HTMLDivElement | null = null;
 let toastTimeout: number | null = null;
+let copyTimeout: number | null = null;
 
 // Listen for messages from background script
 // Use an async wrapper to allow `await` inside the listener
@@ -161,7 +162,11 @@ function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-ri
     copyBtn.onclick = () => {
       navigator.clipboard.writeText(message);
       copyBtn.textContent = 'Copied!';
-      setTimeout(() => {
+      // Clear any existing timeout to prevent race conditions
+      if (copyTimeout !== null) {
+        clearTimeout(copyTimeout);
+      }
+      copyTimeout = window.setTimeout(() => {
         if (copyBtn) copyBtn.textContent = 'Copy';
       }, 2000);
     };
@@ -203,9 +208,14 @@ function dismissToast() {
     currentToast.remove();
     currentToast = null;
   }
-  if (toastTimeout) {
+  // Use `!== null` to correctly handle timeout IDs that might be 0
+  if (toastTimeout !== null) {
     clearTimeout(toastTimeout);
     toastTimeout = null;
+  }
+  if (copyTimeout !== null) {
+    clearTimeout(copyTimeout);
+    copyTimeout = null;
   }
   document.removeEventListener('keydown', handleEscape);
 }
