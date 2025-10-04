@@ -105,7 +105,10 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     await sendMessageToTab(tab.id, {
       type: 'SHOW_TOAST',
       payload: {
-        message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        // Use String(error) to ensure the specific error message is always captured,
+        // as `instanceof Error` can be unreliable across different contexts.
+        // The thrown error from callLLM already contains a descriptive prefix.
+        message: String(error),
         type: 'error',
       },
     });
