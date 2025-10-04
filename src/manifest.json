@@ -40,8 +40,8 @@
   "commands": {
     "toggle-extension": {
       "suggested_key": {
-        "default": "Ctrl+Shift+L",
-        "mac": "Command+Shift+L"
+        "default": "Ctrl+Shift+Space",
+        "mac": "Command+Shift+Space"
       },
       "description": "Toggle Ask LLM on/off"
     }
