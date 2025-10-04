@@ -1,12 +1,5 @@
-// Chrome Extension Background Script - No imports allowed
-const DEFAULT_SETTINGS = {
-  enabled: true,
-  apiKey: '',
-  apiEndpoint: 'https://openrouter.ai/api/v1/chat/completions',
-  toastDuration: 20000,
-  toastPosition: 'bottom-right',
-  provider: 'openrouter',
-};
+import { DEFAULT_SETTINGS } from './types';
+import type { ExtensionSettings, LLMResponse } from './types';
 
 const CONTEXT_MENU_ID = 'ask-llm';
 
@@ -135,7 +128,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 });
 
 // API call function - ONLY uses OpenRouter with Gemini 2.5 Flash
-async function callLLM(text, settings) {
+async function callLLM(text: string, settings: ExtensionSettings): Promise<LLMResponse> {
   const { apiKey, apiEndpoint } = settings;
 
   const headers = {
