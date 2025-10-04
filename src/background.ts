@@ -41,55 +41,74 @@ async function updateContextMenu() {
   }
 }
 
+// Helper to safely send a message to a tab
+async function sendMessageToTab(tabId: number, message: any) {
+  try {
+    await chrome.tabs.sendMessage(tabId, message);
+  } catch (error) {
+    console.warn(`Could not send message to tab ${tabId}:`, error);
+    // This error is expected if the content script isn't loaded on the page
+  }
+}
+
 // Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (info.menuItemId === CONTEXT_MENU_ID && info.selectionText && tab?.id) {
-    const { settings } = await chrome.storage.local.get('settings');
-    const currentSettings = settings || DEFAULT_SETTINGS;
+  // Ensure the tab and its URL are valid
+  if (
+    info.menuItemId !== CONTEXT_MENU_ID ||
+    !info.selectionText ||
+    !tab?.id ||
+    !tab.url ||
+    !/^(https?|file):/.test(tab.url) // Only run on http, https, or file URLs
+  ) {
+    return;
+  }
 
-    // Validate API key
-    if (!currentSettings.apiKey) {
-      chrome.tabs.sendMessage(tab.id, {
-        type: 'SHOW_TOAST',
-        payload: {
-          message: 'Please set your API key in the extension options.',
-          type: 'error',
-        },
-      });
-      return;
-    }
+  const { settings } = await chrome.storage.local.get('settings');
+  const currentSettings = settings || DEFAULT_SETTINGS;
 
-    // Show loading toast
-    chrome.tabs.sendMessage(tab.id, {
+  // Validate API key
+  if (!currentSettings.apiKey) {
+    await sendMessageToTab(tab.id, {
       type: 'SHOW_TOAST',
       payload: {
-        message: 'Asking LLM...',
-        type: 'info',
-        duration: 0, // Don't auto-dismiss
+        message: 'Please set your API key in the extension options.',
+        type: 'error',
       },
     });
+    return;
+  }
 
-    // Make API call
-    try {
-      const response = await callLLM(info.selectionText, currentSettings);
-      
-      chrome.tabs.sendMessage(tab.id, {
-        type: 'SHOW_TOAST',
-        payload: {
-          message: response.content || 'No response received',
-          type: response.success ? 'success' : 'error',
-          duration: currentSettings.toastDuration,
-        },
-      });
-    } catch (error) {
-      chrome.tabs.sendMessage(tab.id, {
-        type: 'SHOW_TOAST',
-        payload: {
-          message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          type: 'error',
-        },
-      });
-    }
+  // Show loading toast
+  await sendMessageToTab(tab.id, {
+    type: 'SHOW_TOAST',
+    payload: {
+      message: 'Asking LLM...',
+      type: 'info',
+      duration: 0, // Don't auto-dismiss
+    },
+  });
+
+  // Make API call
+  try {
+    const response = await callLLM(info.selectionText, currentSettings);
+
+    await sendMessageToTab(tab.id, {
+      type: 'SHOW_TOAST',
+      payload: {
+        message: response.content || 'No response received',
+        type: response.success ? 'success' : 'error',
+        duration: currentSettings.toastDuration,
+      },
+    });
+  } catch (error) {
+    await sendMessageToTab(tab.id, {
+      type: 'SHOW_TOAST',
+      payload: {
+        message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        type: 'error',
+      },
+    });
   }
 });
 
@@ -104,10 +123,13 @@ chrome.commands.onCommand.addListener(async (command) => {
     await updateContextMenu();
 
     // Notify all tabs
-    const tabs = await chrome.tabs.query({});
-    tabs.forEach(tab => {
+    const tabs = await chrome.tabs.query({
+      url: ['http://*/*', 'https://*/*'], // Only message http/https tabs
+    });
+
+    for (const tab of tabs) {
       if (tab.id) {
-        chrome.tabs.sendMessage(tab.id, {
+        await sendMessageToTab(tab.id, {
           type: 'SHOW_TOAST',
           payload: {
             message: `Ask LLM ${currentSettings.enabled ? 'enabled' : 'disabled'}`,
@@ -116,7 +138,7 @@ chrome.commands.onCommand.addListener(async (command) => {
           },
         });
       }
-    });
+    }
   }
 });
 
