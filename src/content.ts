@@ -1,6 +1,7 @@
-// Chrome Extension Content Script - No imports allowed
-let currentToast = null;
-let toastTimeout = null;
+import type { ToastOptions } from './types';
+
+let currentToast: HTMLDivElement | null = null;
+let toastTimeout: number | null = null;
 
 // Listen for messages from background script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -13,7 +14,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return true; // Keep the message channel open
 });
 
-function showToast(options) {
+function showToast(options: ToastOptions) {
   console.log('Showing toast:', options);
   // Remove existing toast
   if (currentToast) {
@@ -27,7 +28,7 @@ function showToast(options) {
   });
 }
 
-function createToast(options, position) {
+function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-right') {
   const { message, type, duration = 20000 } = options;
 
   // Create container with Shadow DOM
@@ -183,7 +184,7 @@ function createToast(options, position) {
   document.addEventListener('keydown', handleEscape);
 }
 
-function handleEscape(e) {
+function handleEscape(e: KeyboardEvent) {
   if (e.key === 'Escape') {
     dismissToast();
   }

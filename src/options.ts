@@ -31,7 +31,7 @@ async function loadSettings() {
 
 // Update endpoint based on provider
 providerSelect.addEventListener('change', () => {
-  const provider = providerSelect.value as keyof typeof ENDPOINTS;
+  const provider = providerSelect.value as 'openrouter' | 'custom';
   if (provider !== 'custom') {
     apiEndpointInput.value = ENDPOINTS[provider];
   }
@@ -52,13 +52,19 @@ function updateEndpointVisibility() {
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
 
+  const duration = parseInt(toastDurationInput.value, 10);
+  if (isNaN(duration) || duration < 1) {
+    showStatus('Invalid duration. Please enter a positive number.', 'error');
+    return;
+  }
+
   const settings: ExtensionSettings = {
     enabled: true, // Keep current enabled state
-    provider: 'openrouter', // Always use openrouter
+    provider: providerSelect.value as 'openrouter' | 'custom',
     apiKey: apiKeyInput.value.trim(),
     apiEndpoint: apiEndpointInput.value.trim(),
-    toastPosition: toastPositionSelect.value as any,
-    toastDuration: parseInt(toastDurationInput.value) * 1000,
+    toastPosition: toastPositionSelect.value as 'bottom-left' | 'bottom-right',
+    toastDuration: duration * 1000,
   };
 
   // Get current enabled state

@@ -4,7 +4,7 @@ export interface ExtensionSettings {
   apiEndpoint: string;
   toastDuration: number;
   toastPosition: 'bottom-left' | 'bottom-right';
-  provider: 'openrouter';
+  provider: 'openrouter' | 'custom';
 }
 
 export interface LLMResponse {
