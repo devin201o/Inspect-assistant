@@ -4,22 +4,27 @@ import type { ToastOptions } from './types';
 let currentToast: HTMLDivElement | null = null;
 let toastTimeout: number | null = null;
 let copyTimeout: number | null = null;
-let currentModal: HTMLDivElement | null = null;
+let currentInputBox: HTMLDivElement | null = null;
+let lastMousePosition = { x: 0, y: 0 };
 
-// --- MESSAGE LISTENER ---
+// --- EVENT LISTENERS ---
+
+// Track mouse position to place the input box correctly
+document.addEventListener('mousemove', (event) => {
+  lastMousePosition = { x: event.clientX, y: event.clientY };
+});
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
-  console.log('Content script received message:', message);
-
   if (message.type === 'SHOW_TOAST') {
     (async () => {
       await showToast(message.payload);
       sendResponse({ success: true });
     })();
-    return true; // Indicate async response
+    return true;
   }
 
-  if (message.type === 'SHOW_PROMPT_MODAL') {
-    showPromptModal(message.payload.selectionText, message.payload.manualPrompt);
+  if (message.type === 'SHOW_INPUT_BOX') {
+    showInputBox(message.payload.selectionText);
     sendResponse({ success: true });
     return false;
   }
@@ -28,108 +33,87 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   return false;
 });
 
-// --- MODAL IMPLEMENTATION ---
-function showPromptModal(selectionText: string, defaultPrompt: string) {
-  dismissPromptModal();
+// --- INPUT BOX IMPLEMENTATION ---
 
-  const backdrop = document.createElement('div');
-  backdrop.id = 'ask-llm-modal-container';
-  document.body.appendChild(backdrop);
+function showInputBox(selectionText: string) {
+  dismissInputBox(); // Ensure no other box is open
 
-  const shadowRoot = backdrop.attachShadow({ mode: 'open' });
+  const container = document.createElement('div');
+  container.id = 'ask-llm-input-container';
+  document.body.appendChild(container);
+
+  const shadowRoot = container.attachShadow({ mode: 'open' });
 
   const styleLink = document.createElement('link');
   styleLink.rel = 'stylesheet';
-  styleLink.href = chrome.runtime.getURL('styles/modal.css');
+  styleLink.href = chrome.runtime.getURL('styles/input-box.css');
   shadowRoot.appendChild(styleLink);
 
-  const modalBackdrop = document.createElement('div');
-  modalBackdrop.className = 'ask-llm-modal-backdrop';
-  modalBackdrop.addEventListener('click', dismissPromptModal);
+  const inputBox = document.createElement('div');
+  inputBox.className = 'ask-llm-input-box-container';
 
-  const dialog = document.createElement('div');
-  dialog.className = 'ask-llm-modal-dialog';
-  dialog.addEventListener('click', (e) => e.stopPropagation());
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.placeholder = 'Your prompt... (Press Enter to submit)';
 
-  const header = document.createElement('div');
-  header.className = 'ask-llm-modal-header';
-  const title = document.createElement('h2');
-  title.textContent = 'Ask LLM';
-  header.appendChild(title);
+  const helpText = document.createElement('p');
+  helpText.textContent = 'Press Esc or click away to cancel.';
 
-  const body = document.createElement('div');
-  body.className = 'ask-llm-modal-body';
+  inputBox.appendChild(input);
+  inputBox.appendChild(helpText);
+  shadowRoot.appendChild(inputBox);
 
-  const textarea = document.createElement('textarea');
-  textarea.placeholder = 'Enter your prompt...';
-  textarea.value = defaultPrompt;
-  textarea.maxLength = 200;
+  // Position the box near the cursor
+  inputBox.style.left = `${lastMousePosition.x}px`;
+  inputBox.style.top = `${lastMousePosition.y}px`;
 
-  const charCount = document.createElement('div');
-  charCount.className = 'ask-llm-modal-char-count';
-  const updateCharCount = () => {
-      charCount.textContent = `${textarea.value.length} / ${textarea.maxLength}`;
-  };
-  textarea.addEventListener('input', updateCharCount);
-  updateCharCount();
+  currentInputBox = container;
 
-  body.appendChild(textarea);
-  body.appendChild(charCount);
-
-  const footer = document.createElement('div');
-  footer.className = 'ask-llm-modal-footer';
-
-  const cancelBtn = document.createElement('button');
-  cancelBtn.className = 'ask-llm-modal-btn ask-llm-modal-btn-secondary';
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.onclick = dismissPromptModal;
-
-  const submitBtn = document.createElement('button');
-  submitBtn.className = 'ask-llm-modal-btn ask-llm-modal-btn-primary';
-  submitBtn.textContent = 'Submit';
-  submitBtn.onclick = () => {
-      const userPrompt = textarea.value.trim();
+  // Handle submission
+  input.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      const userPrompt = input.value.trim();
       if (userPrompt) {
-          chrome.runtime.sendMessage({
-              type: 'EXECUTE_MANUAL_PROMPT',
-              payload: {
-                  selectionText,
-                  prompt: userPrompt,
-              },
-          });
-          dismissPromptModal();
+        chrome.runtime.sendMessage({
+          type: 'EXECUTE_MANUAL_PROMPT',
+          payload: { selectionText, prompt: userPrompt },
+        });
+        dismissInputBox();
       }
-  };
+    }
+  });
 
-  footer.appendChild(cancelBtn);
-  footer.appendChild(submitBtn);
+  // Handle dismissal via Escape key
+  document.addEventListener('keydown', handleEscapeForInputBox);
 
-  dialog.appendChild(header);
-  dialog.appendChild(body);
-  dialog.appendChild(footer);
-  modalBackdrop.appendChild(dialog);
-  shadowRoot.appendChild(modalBackdrop);
+  // Handle dismissal via click outside
+  setTimeout(() => {
+    document.addEventListener('click', handleDocumentClickForInputBox);
+  }, 0);
 
-  currentModal = backdrop;
-
-  document.addEventListener('keydown', handleEscapeForModal);
-
-  textarea.focus();
-  textarea.select();
+  input.focus();
 }
 
-function handleEscapeForModal(e: KeyboardEvent) {
+function dismissInputBox() {
+  if (currentInputBox) {
+    currentInputBox.remove();
+    currentInputBox = null;
+  }
+  document.removeEventListener('click', handleDocumentClickForInputBox);
+  document.removeEventListener('keydown', handleEscapeForInputBox);
+}
+
+function handleDocumentClickForInputBox(e: MouseEvent) {
+  if (currentInputBox && !currentInputBox.shadowRoot?.contains(e.target as Node)) {
+    dismissInputBox();
+  }
+}
+
+function handleEscapeForInputBox(e: KeyboardEvent) {
   if (e.key === 'Escape') {
-      dismissPromptModal();
+    dismissInputBox();
   }
-}
-
-function dismissPromptModal() {
-  if (currentModal) {
-      currentModal.remove();
-      currentModal = null;
-  }
-  document.removeEventListener('keydown', handleEscapeForModal);
 }
 
 // --- TOAST IMPLEMENTATION ---
@@ -189,59 +173,17 @@ function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-ri
       }
     }
 
-    .toast-success {
-      border-left: 4px solid #10b981;
-    }
-
-    .toast-error {
-      border-left: 4px solid #ef4444;
-    }
-
-    .toast-info {
-      border-left: 4px solid #3b82f6;
-    }
-
-    .toast-content {
-      flex: 1;
-      word-wrap: break-word;
-      white-space: pre-wrap;
-    }
-
-    .toast-actions {
-      display: flex;
-      gap: 8px;
-      flex-shrink: 0;
-    }
-
-    .toast-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      padding: 4px 8px;
-      border-radius: 4px;
-      font-size: 12px;
-      transition: background 0.2s;
-    }
-
-    .toast-btn:hover {
-      background: #f3f4f6;
-    }
-
-    .toast-btn:focus {
-      outline: 2px solid #3b82f6;
-      outline-offset: 2px;
-    }
-
-    .close-btn {
-      color: #6b7280;
-      font-weight: bold;
-    }
-
-    .copy-btn {
-      color: #3b82f6;
-    }
+    .toast-success { border-left: 4px solid #10b981; }
+    .toast-error { border-left: 4px solid #ef4444; }
+    .toast-info { border-left: 4px solid #3b82f6; }
+    .toast-content { flex: 1; word-wrap: break-word; white-space: pre-wrap; }
+    .toast-actions { display: flex; gap: 8px; flex-shrink: 0; }
+    .toast-btn { background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; font-size: 12px; transition: background 0.2s; }
+    .toast-btn:hover { background: #f3f4f6; }
+    .toast-btn:focus { outline: 2px solid #3b82f6; outline-offset: 2px; }
+    .close-btn { color: #6b7280; font-weight: bold; }
+    .copy-btn { color: #3b82f6; }
   `;
-
   shadowRoot.appendChild(style);
 
   const contentDiv = document.createElement('div');
@@ -259,12 +201,8 @@ function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-ri
     copyBtn.onclick = () => {
       navigator.clipboard.writeText(message);
       copyBtn.textContent = 'Copied!';
-      if (copyTimeout !== null) {
-        clearTimeout(copyTimeout);
-      }
-      copyTimeout = window.setTimeout(() => {
-        if (copyBtn) copyBtn.textContent = 'Copy';
-      }, 2000);
+      if (copyTimeout !== null) clearTimeout(copyTimeout);
+      copyTimeout = window.setTimeout(() => { if (copyBtn) copyBtn.textContent = 'Copy'; }, 2000);
     };
     actionsDiv.appendChild(copyBtn);
   }

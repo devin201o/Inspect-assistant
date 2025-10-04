@@ -29,7 +29,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       }
     })();
     sendResponse({ success: true });
-    return true; // Async response
+    return true; // Indicate async response
   }
 });
 
@@ -57,10 +57,9 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 
   if (currentSettings.promptMode === 'manual') {
     await sendMessageToTab(tab.id, {
-      type: 'SHOW_PROMPT_MODAL',
+      type: 'SHOW_INPUT_BOX',
       payload: {
         selectionText: info.selectionText,
-        manualPrompt: currentSettings.manualPrompt,
       },
     });
   } else {

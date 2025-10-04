@@ -10,8 +10,6 @@ const testBtn = document.getElementById('testBtn') as HTMLButtonElement;
 const statusDiv = document.getElementById('status') as HTMLDivElement;
 const endpointGroup = document.getElementById('endpointGroup') as HTMLDivElement;
 const promptModeRadios = document.querySelectorAll<HTMLInputElement>('input[name="promptMode"]');
-const manualPromptGroup = document.getElementById('manualPromptGroup') as HTMLDivElement;
-const manualPromptInput = document.getElementById('manualPrompt') as HTMLTextAreaElement;
 
 const ENDPOINTS = {
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
@@ -26,7 +24,6 @@ async function loadSettings() {
   apiEndpointInput.value = settings.apiEndpoint;
   toastPositionSelect.value = settings.toastPosition;
   toastDurationInput.value = (settings.toastDuration / 1000).toString();
-  manualPromptInput.value = settings.manualPrompt;
 
   promptModeRadios.forEach(radio => {
     if (radio.value === settings.promptMode) {
@@ -35,7 +32,6 @@ async function loadSettings() {
   });
 
   updateEndpointVisibility();
-  updateManualPromptVisibility();
 }
 
 providerSelect.addEventListener('change', () => {
@@ -45,19 +41,6 @@ providerSelect.addEventListener('change', () => {
   }
   updateEndpointVisibility();
 });
-
-promptModeRadios.forEach(radio => {
-  radio.addEventListener('change', updateManualPromptVisibility);
-});
-
-function updateManualPromptVisibility() {
-  const selectedMode = (document.querySelector('input[name="promptMode"]:checked') as HTMLInputElement)?.value;
-  if (selectedMode === 'manual') {
-    manualPromptGroup.style.display = 'block';
-  } else {
-    manualPromptGroup.style.display = 'none';
-  }
-}
 
 function updateEndpointVisibility() {
   if (providerSelect.value === 'custom') {
@@ -91,10 +74,10 @@ form.addEventListener('submit', async (e) => {
     toastPosition: toastPositionSelect.value as 'bottom-left' | 'bottom-right',
     toastDuration: duration * 1000,
     promptMode: selectedPromptMode,
-    manualPrompt: manualPromptInput.value.trim(),
   };
 
   await chrome.storage.local.set({ settings });
+  await chrome.runtime.sendMessage({ type: 'SETTINGS_CHANGED' });
   showStatus('Settings saved successfully!', 'success');
 });
 

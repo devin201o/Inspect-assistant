@@ -6,7 +6,6 @@ export interface ExtensionSettings {
   toastPosition: 'bottom-left' | 'bottom-right';
   provider: 'openrouter' | 'custom';
   promptMode: 'auto' | 'manual';
-  manualPrompt: string;
 }
 
 export interface LLMResponse {
@@ -30,5 +29,4 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   toastPosition: 'bottom-right',
   provider: 'openrouter',
   promptMode: 'auto',
-  manualPrompt: 'Summarize this text in 1-2 sentences.',
 };
