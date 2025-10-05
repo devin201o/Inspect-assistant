@@ -31,6 +31,17 @@ A Chrome extension to highlight text and ask your LLM via context menu.
 3.  Highlight any text on a webpage, right-click, and select "Ask LLM" from the context menu.
 4.  The selected text will be sent to your configured LLM, and the response will be displayed in a new tab.
 
+## Known Limitations
+
+This extension cannot run on certain pages due to Chrome's security policies. This includes:
+- The Chrome Web Store
+- Internal Chrome pages (e.g., `chrome://extensions`, `chrome://settings`)
+- Other extension's pages
+
+## Troubleshooting
+
+If the "Ask LLM" context menu does not appear on a supported webpage, try refreshing the page. This can happen if the extension was updated or installed while the page was already open.
+
 ## Development
 
 To set up the development environment:
