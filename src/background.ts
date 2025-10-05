@@ -3,133 +3,80 @@ import type { ExtensionSettings, LLMResponse } from './types';
 
 const CONTEXT_MENU_ID = 'ask-llm';
 
-// Initialize extension
+// --- INITIALIZATION ---
 chrome.runtime.onInstalled.addListener(async () => {
-  // Set default settings
   const result = await chrome.storage.local.get('settings');
   if (!result.settings) {
     await chrome.storage.local.set({ settings: DEFAULT_SETTINGS });
   }
-  
-  // Create context menu
   await updateContextMenu();
 });
 
-// Handle messages from popup
+// --- LISTENERS ---
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'SETTINGS_CHANGED') {
     updateContextMenu();
+    sendResponse({ success: true });
+    return;
+  }
+
+  if (message.type === 'EXECUTE_MANUAL_PROMPT') {
+    (async () => {
+      const { selectionText, prompt } = message.payload;
+      const tabId = sender.tab?.id;
+      if (tabId) {
+        await processLLMRequest(selectionText, tabId, prompt);
+      }
+    })();
+    sendResponse({ success: true });
+    return true; // Indicate async response
   }
 });
 
-// Update context menu based on enabled state
-async function updateContextMenu() {
-  const { settings } = await chrome.storage.local.get('settings');
-  const currentSettings = settings || DEFAULT_SETTINGS;
-
-  await chrome.contextMenus.removeAll();
-
-  if (currentSettings.enabled) {
-    chrome.contextMenus.create({
-      id: CONTEXT_MENU_ID,
-      title: 'Ask LLM',
-      contexts: ['selection'],
-    });
-    console.log('Context menu created - extension enabled');
-  } else {
-    console.log('Context menu removed - extension disabled');
-  }
-}
-
-// Helper to safely send a message to a tab
-async function sendMessageToTab(tabId: number, message: any) {
-  try {
-    await chrome.tabs.sendMessage(tabId, message);
-  } catch (error) {
-    console.warn(`Could not send message to tab ${tabId}:`, error);
-    // This error is expected if the content script isn't loaded on the page
-  }
-}
-
-// Handle context menu clicks
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  // Ensure the tab and its URL are valid
   if (
     info.menuItemId !== CONTEXT_MENU_ID ||
     !info.selectionText ||
     !tab?.id ||
     !tab.url ||
-    !/^(https?|file):/.test(tab.url) // Only run on http, https, or file URLs
+    !/^(https?|file):/.test(tab.url)
   ) {
     return;
   }
 
   const { settings } = await chrome.storage.local.get('settings');
-  const currentSettings = settings || DEFAULT_SETTINGS;
+  const currentSettings: ExtensionSettings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
 
-  // Validate API key
   if (!currentSettings.apiKey) {
     await sendMessageToTab(tab.id, {
       type: 'SHOW_TOAST',
-      payload: {
-        message: 'Please set your API key in the extension options.',
-        type: 'error',
-      },
+      payload: { message: 'Please set your API key in the extension options.', type: 'error' },
     });
     return;
   }
 
-  // Show loading toast
-  await sendMessageToTab(tab.id, {
-    type: 'SHOW_TOAST',
-    payload: {
-      message: 'Asking LLM...',
-      type: 'info',
-      duration: 0, // Don't auto-dismiss
-    },
-  });
-
-  // Make API call
-  try {
-    const response = await callLLM(info.selectionText, currentSettings);
-
+  if (currentSettings.promptMode === 'manual') {
     await sendMessageToTab(tab.id, {
-      type: 'SHOW_TOAST',
+      type: 'SHOW_INPUT_BOX',
       payload: {
-        message: response.content || 'No response received',
-        type: response.success ? 'success' : 'error',
-        duration: currentSettings.toastDuration,
+        selectionText: info.selectionText,
       },
     });
-  } catch (error) {
-    await sendMessageToTab(tab.id, {
-      type: 'SHOW_TOAST',
-      payload: {
-        // Use String(error) to ensure the specific error message is always captured,
-        // as `instanceof Error` can be unreliable across different contexts.
-        // The thrown error from callLLM already contains a descriptive prefix.
-        message: String(error),
-        type: 'error',
-      },
-    });
+  } else {
+    await processLLMRequest(info.selectionText, tab.id);
   }
 });
 
-// Handle toggle command
 chrome.commands.onCommand.addListener(async (command) => {
   if (command === 'toggle-extension') {
     const { settings } = await chrome.storage.local.get('settings');
-    const currentSettings = settings || DEFAULT_SETTINGS;
+    const currentSettings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
     
     currentSettings.enabled = !currentSettings.enabled;
     await chrome.storage.local.set({ settings: currentSettings });
     await updateContextMenu();
 
-    // Notify all tabs
-    const tabs = await chrome.tabs.query({
-      url: ['http://*/*', 'https://*/*'], // Only message http/https tabs
-    });
-
+    const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
     for (const tab of tabs) {
       if (tab.id) {
         await sendMessageToTab(tab.id, {
@@ -145,15 +92,41 @@ chrome.commands.onCommand.addListener(async (command) => {
   }
 });
 
-// Listen for settings changes
 chrome.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'local' && changes.settings) {
     updateContextMenu();
   }
 });
 
-// API call function - ONLY uses OpenRouter with Gemini 2.5 Flash
-async function callLLM(text: string, settings: ExtensionSettings): Promise<LLMResponse> {
+// --- CORE LOGIC ---
+async function processLLMRequest(text: string, tabId: number, customPrompt?: string) {
+  const { settings } = await chrome.storage.local.get('settings');
+  const currentSettings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
+
+  await sendMessageToTab(tabId, {
+    type: 'SHOW_TOAST',
+    payload: { message: 'Asking LLM...', type: 'info', duration: 0 },
+  });
+
+  try {
+    const response = await callLLM(text, currentSettings, customPrompt);
+    await sendMessageToTab(tabId, {
+      type: 'SHOW_TOAST',
+      payload: {
+        message: response.content || 'No response received',
+        type: response.success ? 'success' : 'error',
+        duration: currentSettings.toastDuration,
+      },
+    });
+  } catch (error) {
+    await sendMessageToTab(tabId, {
+      type: 'SHOW_TOAST',
+      payload: { message: String(error), type: 'error' },
+    });
+  }
+}
+
+async function callLLM(text: string, settings: ExtensionSettings, customPrompt?: string): Promise<LLMResponse> {
   const { apiKey, apiEndpoint } = settings;
 
   const headers = {
@@ -163,16 +136,18 @@ async function callLLM(text: string, settings: ExtensionSettings): Promise<LLMRe
     'X-Title': 'Ask LLM Extension',
   };
 
-  const requestBody = {
-    model: 'google/gemini-2.5-flash',
-    messages: [
-      { role: 'system', content: `You are a concise academic assistant.
+  const systemPrompt = customPrompt || `You are a concise academic assistant.
 Respond with the final answer first, then a brief explanation.
 Format:
 0. If the text received is not a question, respond normally with a 15 word answer and you can disregard points 1-3.
 1. If the text received is a question, start with "Answer: <short answer>" (max ~15 words).
 2. Then 1–4 short sentences explaining why or how.
-3. If unsure, say "Insufficient information".` },
+3. If unsure, say "Insufficient information".`;
+
+  const requestBody = {
+    model: 'google/gemini-2.5-flash',
+    messages: [
+      { role: 'system', content: systemPrompt },
       { role: 'user', content: text },
     ],
     max_tokens: 500,
@@ -190,12 +165,31 @@ Format:
   }
 
   const data = await response.json();
-
-  // Parse OpenRouter response
   const content = data.choices?.[0]?.message?.content || 'No response';
 
-  return {
-    success: true,
-    content,
-  };
+  return { success: true, content };
+}
+
+// --- HELPERS ---
+async function updateContextMenu() {
+  const { settings } = await chrome.storage.local.get('settings');
+  const enabled = settings?.enabled ?? DEFAULT_SETTINGS.enabled;
+
+  await chrome.contextMenus.removeAll();
+
+  if (enabled) {
+    chrome.contextMenus.create({
+      id: CONTEXT_MENU_ID,
+      title: 'Ask LLM',
+      contexts: ['selection'],
+    });
+  }
+}
+
+async function sendMessageToTab(tabId: number, message: any) {
+  try {
+    await chrome.tabs.sendMessage(tabId, message);
+  } catch (error) {
+    console.warn(`Could not send message to tab ${tabId}:`, error);
+  }
 }

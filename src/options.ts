@@ -9,16 +9,15 @@ const toastDurationInput = document.getElementById('toastDuration') as HTMLInput
 const testBtn = document.getElementById('testBtn') as HTMLButtonElement;
 const statusDiv = document.getElementById('status') as HTMLDivElement;
 const endpointGroup = document.getElementById('endpointGroup') as HTMLDivElement;
+const promptModeRadios = document.querySelectorAll<HTMLInputElement>('input[name="promptMode"]');
 
-// Only OpenRouter endpoint
 const ENDPOINTS = {
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
 };
 
-// Load current settings
 async function loadSettings() {
   const result = await chrome.storage.local.get('settings');
-  const settings: ExtensionSettings = result.settings || DEFAULT_SETTINGS;
+  const settings: ExtensionSettings = { ...DEFAULT_SETTINGS, ...(result.settings || {}) };
 
   providerSelect.value = settings.provider;
   apiKeyInput.value = settings.apiKey;
@@ -26,10 +25,15 @@ async function loadSettings() {
   toastPositionSelect.value = settings.toastPosition;
   toastDurationInput.value = (settings.toastDuration / 1000).toString();
 
+  promptModeRadios.forEach(radio => {
+    if (radio.value === settings.promptMode) {
+      radio.checked = true;
+    }
+  });
+
   updateEndpointVisibility();
 }
 
-// Update endpoint based on provider
 providerSelect.addEventListener('change', () => {
   const provider = providerSelect.value as 'openrouter' | 'custom';
   if (provider !== 'custom') {
@@ -43,12 +47,11 @@ function updateEndpointVisibility() {
     endpointGroup.style.display = 'block';
     apiEndpointInput.required = true;
   } else {
-    endpointGroup.style.display = 'block'; // Still show but auto-filled
+    endpointGroup.style.display = 'block';
     apiEndpointInput.required = false;
   }
 }
 
-// Save settings
 form.addEventListener('submit', async (e) => {
   e.preventDefault();
 
@@ -58,49 +61,42 @@ form.addEventListener('submit', async (e) => {
     return;
   }
 
+  const selectedPromptMode = (document.querySelector('input[name="promptMode"]:checked') as HTMLInputElement).value as 'auto' | 'manual';
+
+  const result = await chrome.storage.local.get('settings');
+  const existingSettings = result.settings || DEFAULT_SETTINGS;
+
   const settings: ExtensionSettings = {
-    enabled: true, // Keep current enabled state
+    ...existingSettings,
     provider: providerSelect.value as 'openrouter' | 'custom',
     apiKey: apiKeyInput.value.trim(),
     apiEndpoint: apiEndpointInput.value.trim(),
     toastPosition: toastPositionSelect.value as 'bottom-left' | 'bottom-right',
     toastDuration: duration * 1000,
+    promptMode: selectedPromptMode,
   };
 
-  // Get current enabled state
-  const result = await chrome.storage.local.get('settings');
-  if (result.settings) {
-    settings.enabled = result.settings.enabled;
-  }
-
   await chrome.storage.local.set({ settings });
+  await chrome.runtime.sendMessage({ type: 'SETTINGS_CHANGED' });
   showStatus('Settings saved successfully!', 'success');
 });
 
-// Test connection (mock for now)
 testBtn.addEventListener('click', async () => {
   const apiKey = apiKeyInput.value.trim();
   const apiEndpoint = apiEndpointInput.value.trim();
 
-  if (!apiKey) {
-    showStatus('Please enter an API key first', 'error');
-    return;
-  }
-
-  if (!apiEndpoint) {
-    showStatus('Please enter an API endpoint', 'error');
+  if (!apiKey || !apiEndpoint) {
+    showStatus('Please enter an API key and endpoint first', 'error');
     return;
   }
 
   showStatus('Testing connection... (This will test when you add a real API key)', 'info');
   
-  // For now, just show a mock success after 1 second
   setTimeout(() => {
     showStatus('Configuration looks good! Try highlighting text on a webpage.', 'success');
   }, 1000);
 });
 
-// Show status message
 function showStatus(message: string, type: 'success' | 'error' | 'info') {
   statusDiv.textContent = message;
   statusDiv.className = `status ${type} show`;
@@ -110,5 +106,4 @@ function showStatus(message: string, type: 'success' | 'error' | 'info') {
   }, 5000);
 }
 
-// Initialize
 loadSettings();

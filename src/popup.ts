@@ -3,21 +3,19 @@ import { ExtensionSettings, DEFAULT_SETTINGS } from './types';
 const enabledToggle = document.getElementById('enabledToggle') as HTMLInputElement;
 const openOptionsBtn = document.getElementById('openOptions') as HTMLButtonElement;
 const statusDiv = document.getElementById('status') as HTMLDivElement;
+const promptModeRadios = document.querySelectorAll<HTMLInputElement>('input[name="promptMode"]');
 
-// Load current settings
+// --- Functions ---
+
 async function loadSettings() {
   try {
     const result = await chrome.storage.local.get('settings');
-    const settings: ExtensionSettings = result.settings || DEFAULT_SETTINGS;
+    const settings: ExtensionSettings = { ...DEFAULT_SETTINGS, ...(result.settings || {}) };
     
-    console.log('Loaded settings:', settings); // Debug log
-    enabledToggle.checked = settings.enabled;
-    
-    // Show warning if no API key
+    updateUI(settings);
+
     if (!settings.apiKey) {
-      showStatus('Please set your API key in Settings', 'error');
-    } else {
-      showStatus(`Extension ${settings.enabled ? 'enabled' : 'disabled'}`, 'info');
+      showStatus('Set your API key in Settings', 'error');
     }
   } catch (error) {
     console.error('Error loading settings:', error);
@@ -25,39 +23,31 @@ async function loadSettings() {
   }
 }
 
-// Toggle enabled state
-enabledToggle.addEventListener('change', async () => {
+function updateUI(settings: ExtensionSettings) {
+  enabledToggle.checked = settings.enabled;
+
+  promptModeRadios.forEach(radio => {
+    if (radio.value === settings.promptMode) {
+      radio.checked = true;
+    }
+  });
+}
+
+async function updateSetting(key: keyof ExtensionSettings, value: any) {
   try {
     const result = await chrome.storage.local.get('settings');
-    const settings: ExtensionSettings = result.settings || DEFAULT_SETTINGS;
-    
-    settings.enabled = enabledToggle.checked;
+    const settings: ExtensionSettings = { ...DEFAULT_SETTINGS, ...(result.settings || {}) };
+
+    (settings[key] as any) = value;
+
     await chrome.storage.local.set({ settings });
-    
-    console.log('Settings saved:', settings); // Debug log
-    
-    showStatus(
-      `Extension ${settings.enabled ? 'enabled' : 'disabled'}`,
-      'success'
-    );
-    
-    // Notify background script to update context menu
-    chrome.runtime.sendMessage({
-      type: 'SETTINGS_CHANGED',
-      settings: settings
-    });
+    await chrome.runtime.sendMessage({ type: 'SETTINGS_CHANGED' });
   } catch (error) {
-    console.error('Error saving settings:', error);
-    showStatus('Error saving settings', 'error');
+    console.error(`Error updating setting ${key}:`, error);
+    showStatus('Error saving setting', 'error');
   }
-});
+}
 
-// Open options page
-openOptionsBtn.addEventListener('click', () => {
-  chrome.runtime.openOptionsPage();
-});
-
-// Show status message
 function showStatus(message: string, type: 'success' | 'error' | 'info') {
   statusDiv.textContent = message;
   statusDiv.className = `status ${type} show`;
@@ -67,7 +57,30 @@ function showStatus(message: string, type: 'success' | 'error' | 'info') {
   }, 3000);
 }
 
-// Initialize
+// --- Event Listeners ---
+
+enabledToggle.addEventListener('change', () => {
+  updateSetting('enabled', enabledToggle.checked);
+  showStatus(`Extension ${enabledToggle.checked ? 'enabled' : 'disabled'}`, 'info');
+});
+
+promptModeRadios.forEach(radio => {
+  radio.addEventListener('change', () => {
+    const selectedMode = (document.querySelector('input[name="promptMode"]:checked') as HTMLInputElement).value as 'auto' | 'manual';
+    updateSetting('promptMode', selectedMode);
+  });
+});
+
+openOptionsBtn.addEventListener('click', () => {
+  chrome.runtime.openOptionsPage();
+});
+
+chrome.storage.onChanged.addListener((changes, areaName) => {
+  if (areaName === 'local' && changes.settings) {
+    const newSettings: ExtensionSettings = { ...DEFAULT_SETTINGS, ...changes.settings.newValue };
+    updateUI(newSettings);
+  }
+});
+
+// --- Initialization ---
 document.addEventListener('DOMContentLoaded', loadSettings);
-// Also call immediately in case DOMContentLoaded already fired
-loadSettings();
