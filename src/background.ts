@@ -1,39 +1,37 @@
+import browser from 'webextension-polyfill';
 import { DEFAULT_SETTINGS } from './types';
 import type { ExtensionSettings, LLMResponse } from './types';
 
 const CONTEXT_MENU_ID = 'ask-llm';
 
 // --- INITIALIZATION ---
-chrome.runtime.onInstalled.addListener(async () => {
-  const result = await chrome.storage.local.get('settings');
+browser.runtime.onInstalled.addListener(async () => {
+  const result = await browser.storage.local.get('settings');
   if (!result.settings) {
-    await chrome.storage.local.set({ settings: DEFAULT_SETTINGS });
+    await browser.storage.local.set({ settings: DEFAULT_SETTINGS });
   }
   await updateContextMenu();
 });
 
 // --- LISTENERS ---
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+browser.runtime.onMessage.addListener(async (message, sender) => {
   if (message.type === 'SETTINGS_CHANGED') {
-    updateContextMenu();
-    sendResponse({ success: true });
-    return;
+    await updateContextMenu();
+    return { success: true };
   }
 
   if (message.type === 'EXECUTE_MANUAL_PROMPT') {
-    (async () => {
-      const { selectionText, prompt } = message.payload;
-      const tabId = sender.tab?.id;
-      if (tabId) {
-        await processLLMRequest(selectionText, tabId, prompt);
-      }
-    })();
-    sendResponse({ success: true });
-    return true; // Indicate async response
+    const { selectionText, prompt } = message.payload;
+    const tabId = sender.tab?.id;
+    if (tabId) {
+      // Don't wait for the full process, just acknowledge the request.
+      processLLMRequest(selectionText, tabId, prompt);
+    }
+    return { success: true }; // Acknowledge message received
   }
 });
 
-chrome.contextMenus.onClicked.addListener(async (info, tab) => {
+browser.contextMenus.onClicked.addListener(async (info, tab) => {
   if (
     info.menuItemId !== CONTEXT_MENU_ID ||
     !info.selectionText ||
@@ -43,14 +41,13 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     return;
   }
 
-
   // Ensure the extension doesn't run on unsupported pages like chrome://
   if (!/^(https?|file):/.test(tab.url)) {
     return;
   }
 
-  const { settings } = await chrome.storage.local.get('settings');
-  const currentSettings: ExtensionSettings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
+  const result = await browser.storage.local.get('settings');
+  const currentSettings: ExtensionSettings = { ...DEFAULT_SETTINGS, ...(result.settings || {}) };
 
   if (!currentSettings.apiKey) {
     await ensureAndSendMessage(tab.id, {
@@ -72,16 +69,16 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 });
 
-chrome.commands.onCommand.addListener(async (command) => {
+browser.commands.onCommand.addListener(async (command) => {
   if (command === 'toggle-extension') {
-    const { settings } = await chrome.storage.local.get('settings');
+    const { settings } = await browser.storage.local.get('settings');
     const currentSettings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
     
     currentSettings.enabled = !currentSettings.enabled;
-    await chrome.storage.local.set({ settings: currentSettings });
+    await browser.storage.local.set({ settings: currentSettings });
     await updateContextMenu();
 
-    const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
+    const tabs = await browser.tabs.query({ url: ['http://*/*', 'https://*/*'] });
     for (const tab of tabs) {
       if (tab.id) {
         await ensureAndSendMessage(tab.id, {
@@ -97,7 +94,7 @@ chrome.commands.onCommand.addListener(async (command) => {
   }
 });
 
-chrome.storage.onChanged.addListener((changes, areaName) => {
+browser.storage.onChanged.addListener((changes, areaName) => {
   if (areaName === 'local' && changes.settings) {
     updateContextMenu();
   }
@@ -105,7 +102,7 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
 
 // --- CORE LOGIC ---
 async function processLLMRequest(text: string, tabId: number, customPrompt?: string) {
-  const { settings } = await chrome.storage.local.get('settings');
+  const { settings } = await browser.storage.local.get('settings');
   const currentSettings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
 
   const isReady = await ensureContentScript(tabId);
@@ -147,7 +144,7 @@ async function callLLM(text: string, settings: ExtensionSettings, customPrompt?:
   const headers = {
     'Content-Type': 'application/json',
     'Authorization': `Bearer ${apiKey}`,
-    'HTTP-Referer': chrome.runtime.getURL(''),
+    'HTTP-Referer': browser.runtime.getURL(''),
     'X-Title': 'Ask LLM Extension',
   };
 
@@ -183,13 +180,13 @@ async function callLLM(text: string, settings: ExtensionSettings, customPrompt?:
 
 // --- HELPERS ---
 async function updateContextMenu() {
-  const { settings } = await chrome.storage.local.get('settings');
+  const { settings } = await browser.storage.local.get('settings');
   const enabled = settings?.enabled ?? DEFAULT_SETTINGS.enabled;
 
-  await chrome.contextMenus.removeAll();
+  await browser.contextMenus.removeAll();
 
   if (enabled) {
-    chrome.contextMenus.create({
+    browser.contextMenus.create({
       id: CONTEXT_MENU_ID,
       title: 'Ask LLM',
       contexts: ['selection'],
@@ -198,31 +195,29 @@ async function updateContextMenu() {
 }
 
 async function pingTab(tabId: number): Promise<boolean> {
-  let timeout: NodeJS.Timeout;
-  return new Promise((resolve) => {
-    timeout = setTimeout(() => {
+  const timeoutPromise = new Promise<boolean>((resolve) =>
+    setTimeout(() => {
       console.log(`Ping timeout for tab ${tabId}`);
       resolve(false);
-    }, 250);
+    }, 250)
+  );
 
-    chrome.tabs.sendMessage(tabId, { type: 'PING' }, (response) => {
-      clearTimeout(timeout);
-      if (chrome.runtime.lastError) {
-        console.log(`Ping failed for tab ${tabId}:`, chrome.runtime.lastError.message);
-        resolve(false);
-      } else if (response?.type === 'PONG') {
-        resolve(true);
-      } else {
-        console.warn(`Unexpected response to ping in tab ${tabId}:`, response);
-        resolve(false);
-      }
-    });
-  });
+  const pingPromise = (async () => {
+    try {
+      const response = await browser.tabs.sendMessage(tabId, { type: 'PING' });
+      return response?.type === 'PONG';
+    } catch (error) {
+      console.log(`Ping failed for tab ${tabId}:`, String(error));
+      return false;
+    }
+  })();
+
+  return Promise.race([pingPromise, timeoutPromise]);
 }
 
 async function reinjectContentScript(tabId: number): Promise<boolean> {
   try {
-    await chrome.scripting.executeScript({
+    await browser.scripting.executeScript({
       target: { tabId },
       files: ['content.js'],
     });
@@ -244,7 +239,7 @@ async function ensureContentScript(tabId: number): Promise<boolean> {
 }
 
 function showRefreshNotification(tabId: number) {
-  chrome.notifications.create(`refresh-notification-${tabId || Date.now()}`, {
+  browser.notifications.create(`refresh-notification-${tabId || Date.now()}`, {
     type: 'basic',
     iconUrl: 'icons/icon128.png',
     title: 'Ask LLM',
@@ -257,12 +252,12 @@ export async function ensureAndSendMessage(tabId: number, message: any) {
   const isReady = await ensureContentScript(tabId);
   if (!isReady) {
     // If the script isn't ready, we can't show a toast. Show a system notification instead.
-    showRefreshNotification(tabId);
+    showRefreshNotification(tabI__d);
     return;
   }
 
   try {
-    await chrome.tabs.sendMessage(tabId, message);
+    await browser.tabs.sendMessage(tabId, message);
   } catch (error) {
     console.warn(`sendMessage failed even after ensureContentScript for tab ${tabId}`, error);
     showRefreshNotification(tabId);

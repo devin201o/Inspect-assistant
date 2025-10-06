@@ -1,3 +1,4 @@
+import browser from 'webextension-polyfill';
 import { ExtensionSettings, DEFAULT_SETTINGS } from './types';
 
 const form = document.getElementById('settingsForm') as HTMLFormElement;
@@ -16,7 +17,7 @@ const ENDPOINTS = {
 };
 
 async function loadSettings() {
-  const result = await chrome.storage.local.get('settings');
+  const result = await browser.storage.local.get('settings');
   const settings: ExtensionSettings = { ...DEFAULT_SETTINGS, ...(result.settings || {}) };
 
   providerSelect.value = settings.provider;
@@ -63,7 +64,7 @@ form.addEventListener('submit', async (e) => {
 
   const selectedPromptMode = (document.querySelector('input[name="promptMode"]:checked') as HTMLInputElement).value as 'auto' | 'manual';
 
-  const result = await chrome.storage.local.get('settings');
+  const result = await browser.storage.local.get('settings');
   const existingSettings = result.settings || DEFAULT_SETTINGS;
 
   const settings: ExtensionSettings = {
@@ -76,8 +77,8 @@ form.addEventListener('submit', async (e) => {
     promptMode: selectedPromptMode,
   };
 
-  await chrome.storage.local.set({ settings });
-  await chrome.runtime.sendMessage({ type: 'SETTINGS_CHANGED' });
+  await browser.storage.local.set({ settings });
+  await browser.runtime.sendMessage({ type: 'SETTINGS_CHANGED' });
   showStatus('Settings saved successfully!', 'success');
 });
 
