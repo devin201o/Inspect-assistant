@@ -34,27 +34,38 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 });
 
 chrome.contextMenus.onClicked.addListener(async (info, tab) => {
-  if (
-    info.menuItemId !== CONTEXT_MENU_ID ||
-    !info.selectionText ||
-    !tab?.id ||
-    !tab.url
-  ) {
+  if (!tab?.id || !tab.url || info.menuItemId !== CONTEXT_MENU_ID) {
     return;
   }
 
-  // Check if the user is trying to use the extension on a PDF.
+  // First, check if the user is trying to use the extension on a PDF.
+  // This must be done before checking for selectionText, as the PDF viewer
+  // may not correctly report the selected text to the context menu API.
   const isPdf = tab.url.endsWith('.pdf') || tab.url.includes('pdf.js/viewer.html');
   if (isPdf) {
-    // We can't inject content scripts into the built-in PDF viewer,
-    // so we show a system notification instead of an in-page toast.
-    chrome.notifications.create(`pdf-notification-${tab.id || Date.now()}`, {
-      type: 'basic',
-      iconUrl: 'icons/icon128.png',
-      title: 'Ask LLM',
-      message: 'This extension cannot be used on PDF files.',
-      priority: 2,
-    });
+    chrome.notifications.create(
+      `pdf-notification-${tab.id || Date.now()}`,
+      {
+        type: 'basic',
+        iconUrl: 'icons/icon128.png',
+        title: 'Ask LLM',
+        message: 'This extension cannot be used on PDF files.',
+        priority: 2,
+      },
+      (notificationId) => {
+        if (chrome.runtime.lastError) {
+          console.error(
+            `Failed to create notification: ${chrome.runtime.lastError.message}`,
+            notificationId
+          );
+        }
+      }
+    );
+    return;
+  }
+
+  // Now that we've handled PDFs, we can safely check for selectionText.
+  if (!info.selectionText) {
     return;
   }
 
