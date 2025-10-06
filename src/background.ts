@@ -252,7 +252,7 @@ export async function ensureAndSendMessage(tabId: number, message: any) {
   const isReady = await ensureContentScript(tabId);
   if (!isReady) {
     // If the script isn't ready, we can't show a toast. Show a system notification instead.
-    showRefreshNotification(tabI__d);
+    showRefreshNotification(tabId);
     return;
   }
 

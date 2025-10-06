@@ -208,7 +208,7 @@ function showRefreshNotification(tabId) {
 async function ensureAndSendMessage(tabId, message) {
   const isReady = await ensureContentScript(tabId);
   if (!isReady) {
-    showRefreshNotification(tabI__d);
+    showRefreshNotification(tabId);
     return;
   }
   try {
