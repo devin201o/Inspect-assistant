@@ -128,7 +128,7 @@ async function processLLMRequest(text: string, tabId: number, customPrompt?: str
 
 import { DEFAULT_PROMPTS } from './prompts';
 
-const MANUAL_MODE_PROMPT_APPENDIX = 'Please be concise.';
+const MANUAL_MODE_PROMPT_APPENDIX = 'Please be concise, while still being clear and informative.';
 
 async function callLLM(text: string, settings: ExtensionSettings, customPrompt?: string): Promise<LLMResponse> {
   const { apiKey, apiEndpoint } = settings;
