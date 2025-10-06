@@ -46,12 +46,14 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   // Check if the user is trying to use the extension on a PDF.
   const isPdf = tab.url.endsWith('.pdf') || tab.url.includes('pdf.js/viewer.html');
   if (isPdf) {
-    await ensureAndSendMessage(tab.id, {
-      type: 'SHOW_TOAST',
-      payload: {
-        message: 'This extension cannot be used on PDF files.',
-        type: 'error',
-      },
+    // We can't inject content scripts into the built-in PDF viewer,
+    // so we show a system notification instead of an in-page toast.
+    chrome.notifications.create(`pdf-notification-${tab.id || Date.now()}`, {
+      type: 'basic',
+      iconUrl: 'icons/icon128.png',
+      title: 'Ask LLM',
+      message: 'This extension cannot be used on PDF files.',
+      priority: 2,
     });
     return;
   }
