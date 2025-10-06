@@ -43,18 +43,6 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     return;
   }
 
-  // Check if the user is trying to use the extension on a PDF.
-  const isPdf = tab.url.endsWith('.pdf') || tab.url.includes('pdf.js/viewer.html');
-  if (isPdf) {
-    await ensureAndSendMessage(tab.id, {
-      type: 'SHOW_TOAST',
-      payload: {
-        message: 'This extension cannot be used on PDF files.',
-        type: 'error',
-      },
-    });
-    return;
-  }
 
   // Ensure the extension doesn't run on unsupported pages like chrome://
   if (!/^(https?|file):/.test(tab.url)) {
