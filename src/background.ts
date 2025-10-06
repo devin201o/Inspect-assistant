@@ -48,7 +48,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   const currentSettings: ExtensionSettings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
 
   if (!currentSettings.apiKey) {
-    await sendMessageToTab(tab.id, {
+    await ensureAndSendMessage(tab.id, {
       type: 'SHOW_TOAST',
       payload: { message: 'Please set your API key in the extension options.', type: 'error' },
     });
@@ -56,7 +56,7 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
   }
 
   if (currentSettings.promptMode === 'manual') {
-    await sendMessageToTab(tab.id, {
+    await ensureAndSendMessage(tab.id, {
       type: 'SHOW_INPUT_BOX',
       payload: {
         selectionText: info.selectionText,
@@ -79,7 +79,9 @@ chrome.commands.onCommand.addListener(async (command) => {
     const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
     for (const tab of tabs) {
       if (tab.id) {
-        await sendMessageToTab(tab.id, {
+        // We use ensureAndSendMessage to gracefully handle tabs where the content script
+        // might not be injected or active.
+        await ensureAndSendMessage(tab.id, {
           type: 'SHOW_TOAST',
           payload: {
             message: `Ask LLM ${currentSettings.enabled ? 'enabled' : 'disabled'}`,
@@ -103,14 +105,21 @@ async function processLLMRequest(text: string, tabId: number, customPrompt?: str
   const { settings } = await chrome.storage.local.get('settings');
   const currentSettings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
 
-  await sendMessageToTab(tabId, {
+  // First, ensure the content script is ready before showing the 'Asking' toast.
+  const isReady = await ensureContentScript(tabId);
+  if (!isReady) {
+    showRefreshNotification(tabId);
+    return; // Stop if the content script can't be reached.
+  }
+
+  await ensureAndSendMessage(tabId, {
     type: 'SHOW_TOAST',
     payload: { message: 'Asking LLM...', type: 'info', duration: 0 },
   });
 
   try {
     const response = await callLLM(text, currentSettings, customPrompt);
-    await sendMessageToTab(tabId, {
+    await ensureAndSendMessage(tabId, {
       type: 'SHOW_TOAST',
       payload: {
         message: response.content || 'No response received',
@@ -119,7 +128,7 @@ async function processLLMRequest(text: string, tabId: number, customPrompt?: str
       },
     });
   } catch (error) {
-    await sendMessageToTab(tabId, {
+    await ensureAndSendMessage(tabId, {
       type: 'SHOW_TOAST',
       payload: { message: String(error), type: 'error' },
     });
@@ -186,10 +195,85 @@ async function updateContextMenu() {
   }
 }
 
-async function sendMessageToTab(tabId: number, message: any) {
+async function pingTab(tabId: number): Promise<boolean> {
+  let timeout: NodeJS.Timeout;
+  return new Promise((resolve) => {
+    // Set a timeout for the ping
+    timeout = setTimeout(() => {
+      console.log(`Ping timeout for tab ${tabId}`);
+      resolve(false);
+    }, 250);
+
+    chrome.tabs.sendMessage(tabId, { type: 'PING' }, (response) => {
+      clearTimeout(timeout);
+      if (chrome.runtime.lastError) {
+        // Content script doesn't exist or threw an error.
+        console.log(`Ping failed for tab ${tabId}:`, chrome.runtime.lastError.message);
+        resolve(false);
+      } else if (response?.type === 'PONG') {
+        // Success
+        resolve(true);
+      } else {
+        // Unexpected response
+        console.warn(`Unexpected response to ping in tab ${tabId}:`, response);
+        resolve(false);
+      }
+    });
+  });
+}
+
+async function ensureContentScript(tabId: number): Promise<boolean> {
+  const isAlive = await pingTab(tabId);
+  if (isAlive) {
+    return true;
+  }
+
+  console.log(`Content script in tab ${tabId} is not responding. Attempting to reinject.`);
+  const reinjected = await reinjectContentScript(tabId);
+  return reinjected;
+}
+
+async function reinjectContentScript(tabId: number): Promise<boolean> {
   try {
+    await chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['content.js'],
+    });
+    console.log(`Successfully reinjected content script into tab ${tabId}`);
+
+    // After injecting, ping again to confirm it's active
+    const isAlive = await pingTab(tabId);
+    return isAlive;
+  } catch (error) {
+    console.warn(`Failed to reinject content script into tab ${tabId}:`, error);
+    return false;
+  }
+}
+
+function showRefreshNotification(tabId: number) {
+  chrome.notifications.create(`refresh-notification-${tabId || Date.now()}`, {
+    type: 'basic',
+    iconUrl: 'icons/icon128.png',
+    title: 'Ask LLM',
+    message: 'The extension seems to be out of sync on this page. Please refresh the tab and try again.',
+    priority: 2,
+  });
+}
+
+export async function ensureAndSendMessage(tabId: number, message: any) {
+  const isReady = await ensureContentScript(tabId);
+  if (!isReady) {
+    showRefreshNotification(tabId);
+    // Don't proceed if the script isn't ready.
+    return;
+  }
+
+  try {
+    // We don't use the old sendMessageToTab here to avoid redundant error handling.
     await chrome.tabs.sendMessage(tabId, message);
   } catch (error) {
-    console.warn(`Could not send message to tab ${tabId}:`, error);
+    // This can happen if the script dies between the check and the send.
+    console.warn(`sendMessage failed even after ensureContentScript for tab ${tabId}`, error);
+    showRefreshNotification(tabId);
   }
 }

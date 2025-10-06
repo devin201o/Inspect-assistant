@@ -29,6 +29,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return false;
   }
 
+  if (message.type === 'PING') {
+    sendResponse({ type: 'PONG' });
+    return false; // Not async
+  }
+
   sendResponse({ success: true });
   return false;
 });

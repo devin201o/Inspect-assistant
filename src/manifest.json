@@ -6,7 +6,9 @@
   "permissions": [
     "contextMenus",
     "storage",
-    "activeTab"
+    "activeTab",
+    "scripting",
+    "notifications"
   ],
   "host_permissions": [
     "http://*/*",
@@ -49,7 +51,8 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "styles/*"
+        "styles/*",
+        "*.js"
       ],
       "matches": [
         "<all_urls>"
