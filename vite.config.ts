@@ -42,5 +42,10 @@ export default defineConfig(({ mode }) => {
       target: 'es2020',
       minify: false,
     },
+    resolve: {
+      alias: {
+        'webextension-polyfill': resolve(__dirname, 'node_modules/webextension-polyfill/dist/browser-polyfill.js'),
+      },
+    },
   };
 });

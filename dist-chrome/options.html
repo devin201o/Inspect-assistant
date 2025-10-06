@@ -4,17 +4,13 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ask LLM - Settings</title>
-  <script type="module" crossorigin src="/options.js"></script>
-  <link rel="modulepreload" crossorigin href="/modulepreload-polyfill.js">
-  <link rel="modulepreload" crossorigin href="/browser-polyfill.js">
-  <link rel="modulepreload" crossorigin href="/types.js">
-  <link rel="stylesheet" crossorigin href="/options.css">
+  <link rel="stylesheet" href="styles/options.css">
 </head>
 <body>
   <div class="container">
     <header>
       <h1>Ask LLM Settings</h1>
-      <p>Configure your OpenRouter API key for Google Gemini 2.5 Flash</p>
+      <p>Configure your LLM provider and preferences</p>
     </header>
 
     <form id="settingsForm">
@@ -24,20 +20,22 @@
         <div class="form-group">
           <label for="provider">Provider</label>
           <select id="provider" name="provider">
-            <option value="openrouter">OpenRouter (Google Gemini 2.5 Flash)</option>
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic (Claude)</option>
+            <option value="custom">Custom</option>
           </select>
         </div>
 
         <div class="form-group">
-          <label for="apiKey">OpenRouter API Key *</label>
+          <label for="apiKey">API Key *</label>
           <input
             type="password"
             id="apiKey"
             name="apiKey"
-            placeholder="sk-or-..."
+            placeholder="sk-..."
             required
           />
-          <small>Your API key is stored locally and never sent anywhere except to OpenRouter API.</small>
+          <small>Your API key is stored locally and never sent anywhere except to your chosen API endpoint.</small>
         </div>
 
         <div class="form-group" id="endpointGroup">
@@ -46,10 +44,9 @@
             type="url"
             id="apiEndpoint"
             name="apiEndpoint"
-            placeholder="https://openrouter.ai/api/v1/chat/completions"
-            readonly
+            placeholder="https://api.openai.com/v1/chat/completions"
           />
-          <small>Uses Google Gemini 2.5 Flash model via OpenRouter.</small>
+          <small>Automatically set based on provider, but you can customize it.</small>
         </div>
       </section>
 
@@ -78,23 +75,6 @@
         </div>
       </section>
 
-      <section class="section">
-        <h2>Prompt Mode</h2>
-        <div class="form-group">
-          <div class="radio-group">
-            <label>
-              <input type="radio" name="promptMode" value="auto" checked>
-              Auto (pre-defined prompt)
-            </label>
-            <label>
-              <input type="radio" name="promptMode" value="manual">
-              Manual (ask for prompt each time)
-            </label>
-          </div>
-          <small>This setting can also be changed in the extension popup.</small>
-        </div>
-      </section>
-
       <div class="form-actions">
         <button type="submit" class="btn-primary">Save Settings</button>
         <button type="button" id="testBtn" class="btn-secondary">Test Connection</button>
@@ -103,5 +83,6 @@
       <div class="status" id="status"></div>
     </form>
   </div>
+  <script type="module" src="./options.ts"></script>
 </body>
 </html>
