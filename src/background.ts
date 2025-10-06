@@ -38,9 +38,26 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
     info.menuItemId !== CONTEXT_MENU_ID ||
     !info.selectionText ||
     !tab?.id ||
-    !tab.url ||
-    !/^(https?|file):/.test(tab.url)
+    !tab.url
   ) {
+    return;
+  }
+
+  // Check if the user is trying to use the extension on a PDF.
+  const isPdf = tab.url.endsWith('.pdf') || tab.url.includes('pdf.js/viewer.html');
+  if (isPdf) {
+    await ensureAndSendMessage(tab.id, {
+      type: 'SHOW_TOAST',
+      payload: {
+        message: 'This extension cannot be used on PDF files.',
+        type: 'error',
+      },
+    });
+    return;
+  }
+
+  // Ensure the extension doesn't run on unsupported pages like chrome://
+  if (!/^(https?|file):/.test(tab.url)) {
     return;
   }
 
@@ -79,8 +96,6 @@ chrome.commands.onCommand.addListener(async (command) => {
     const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
     for (const tab of tabs) {
       if (tab.id) {
-        // We use ensureAndSendMessage to gracefully handle tabs where the content script
-        // might not be injected or active.
         await ensureAndSendMessage(tab.id, {
           type: 'SHOW_TOAST',
           payload: {
@@ -105,11 +120,10 @@ async function processLLMRequest(text: string, tabId: number, customPrompt?: str
   const { settings } = await chrome.storage.local.get('settings');
   const currentSettings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
 
-  // First, ensure the content script is ready before showing the 'Asking' toast.
   const isReady = await ensureContentScript(tabId);
   if (!isReady) {
     showRefreshNotification(tabId);
-    return; // Stop if the content script can't be reached.
+    return;
   }
 
   await ensureAndSendMessage(tabId, {
@@ -198,7 +212,6 @@ async function updateContextMenu() {
 async function pingTab(tabId: number): Promise<boolean> {
   let timeout: NodeJS.Timeout;
   return new Promise((resolve) => {
-    // Set a timeout for the ping
     timeout = setTimeout(() => {
       console.log(`Ping timeout for tab ${tabId}`);
       resolve(false);
@@ -207,30 +220,16 @@ async function pingTab(tabId: number): Promise<boolean> {
     chrome.tabs.sendMessage(tabId, { type: 'PING' }, (response) => {
       clearTimeout(timeout);
       if (chrome.runtime.lastError) {
-        // Content script doesn't exist or threw an error.
         console.log(`Ping failed for tab ${tabId}:`, chrome.runtime.lastError.message);
         resolve(false);
       } else if (response?.type === 'PONG') {
-        // Success
         resolve(true);
       } else {
-        // Unexpected response
         console.warn(`Unexpected response to ping in tab ${tabId}:`, response);
         resolve(false);
       }
     });
   });
-}
-
-async function ensureContentScript(tabId: number): Promise<boolean> {
-  const isAlive = await pingTab(tabId);
-  if (isAlive) {
-    return true;
-  }
-
-  console.log(`Content script in tab ${tabId} is not responding. Attempting to reinject.`);
-  const reinjected = await reinjectContentScript(tabId);
-  return reinjected;
 }
 
 async function reinjectContentScript(tabId: number): Promise<boolean> {
@@ -240,14 +239,20 @@ async function reinjectContentScript(tabId: number): Promise<boolean> {
       files: ['content.js'],
     });
     console.log(`Successfully reinjected content script into tab ${tabId}`);
-
-    // After injecting, ping again to confirm it's active
-    const isAlive = await pingTab(tabId);
-    return isAlive;
+    return await pingTab(tabId);
   } catch (error) {
     console.warn(`Failed to reinject content script into tab ${tabId}:`, error);
     return false;
   }
+}
+
+async function ensureContentScript(tabId: number): Promise<boolean> {
+  const isAlive = await pingTab(tabId);
+  if (isAlive) {
+    return true;
+  }
+  console.log(`Content script in tab ${tabId} is not responding. Attempting to reinject.`);
+  return await reinjectContentScript(tabId);
 }
 
 function showRefreshNotification(tabId: number) {
@@ -263,16 +268,14 @@ function showRefreshNotification(tabId: number) {
 export async function ensureAndSendMessage(tabId: number, message: any) {
   const isReady = await ensureContentScript(tabId);
   if (!isReady) {
+    // If the script isn't ready, we can't show a toast. Show a system notification instead.
     showRefreshNotification(tabId);
-    // Don't proceed if the script isn't ready.
     return;
   }
 
   try {
-    // We don't use the old sendMessageToTab here to avoid redundant error handling.
     await chrome.tabs.sendMessage(tabId, message);
   } catch (error) {
-    // This can happen if the script dies between the check and the send.
     console.warn(`sendMessage failed even after ensureContentScript for tab ${tabId}`, error);
     showRefreshNotification(tabId);
   }
