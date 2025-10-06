@@ -104,7 +104,6 @@ chrome.commands.onCommand.addListener(async (command) => {
     
     currentSettings.enabled = !currentSettings.enabled;
     await chrome.storage.local.set({ settings: currentSettings });
-    await updateContextMenu();
 
     const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
     for (const tab of tabs) {
@@ -214,11 +213,23 @@ async function updateContextMenu() {
   await chrome.contextMenus.removeAll();
 
   if (enabled) {
-    chrome.contextMenus.create({
-      id: CONTEXT_MENU_ID,
-      title: 'Ask LLM',
-      contexts: ['selection'],
-    });
+    chrome.contextMenus.create(
+      {
+        id: CONTEXT_MENU_ID,
+        title: 'Ask LLM',
+        contexts: ['selection'],
+      },
+      () => {
+        if (chrome.runtime.lastError) {
+          // This error is expected if the menu already exists, which can happen
+          // due to a race condition on install or reload. We can safely ignore it.
+          const expectedError = `Cannot create item with duplicate id ${CONTEXT_MENU_ID}`;
+          if (chrome.runtime.lastError.message !== expectedError) {
+            console.error('Error creating context menu:', chrome.runtime.lastError);
+          }
+        }
+      }
+    );
   }
 }
 
