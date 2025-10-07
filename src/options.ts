@@ -4,6 +4,7 @@ const form = document.getElementById('settingsForm') as HTMLFormElement;
 const providerSelect = document.getElementById('provider') as HTMLSelectElement;
 const apiKeyInput = document.getElementById('apiKey') as HTMLInputElement;
 const apiEndpointInput = document.getElementById('apiEndpoint') as HTMLInputElement;
+const modelInput = document.getElementById('model') as HTMLInputElement;
 const toastPositionSelect = document.getElementById('toastPosition') as HTMLSelectElement;
 const toastDurationInput = document.getElementById('toastDuration') as HTMLInputElement;
 const testBtn = document.getElementById('testBtn') as HTMLButtonElement;
@@ -22,6 +23,7 @@ async function loadSettings() {
   providerSelect.value = settings.provider;
   apiKeyInput.value = settings.apiKey;
   apiEndpointInput.value = settings.apiEndpoint;
+  modelInput.value = settings.model;
   toastPositionSelect.value = settings.toastPosition;
   toastDurationInput.value = (settings.toastDuration / 1000).toString();
 
@@ -66,11 +68,13 @@ form.addEventListener('submit', async (e) => {
   const result = await chrome.storage.local.get('settings');
   const existingSettings = result.settings || DEFAULT_SETTINGS;
 
+  const modelValue = modelInput.value.trim();
   const settings: ExtensionSettings = {
     ...existingSettings,
     provider: providerSelect.value as 'openrouter' | 'custom',
     apiKey: apiKeyInput.value.trim(),
     apiEndpoint: apiEndpointInput.value.trim(),
+     model: modelValue || DEFAULT_SETTINGS.model,
     toastPosition: toastPositionSelect.value as 'bottom-left' | 'bottom-right',
     toastDuration: duration * 1000,
     promptMode: selectedPromptMode,

@@ -194,7 +194,7 @@ async function callLLM(text: string, settings: ExtensionSettings, customPrompt?:
     : DEFAULT_PROMPTS.conciseAcademic;
 
   const requestBody = {
-    model: 'google/gemini-2.5-flash',
+    model: settings.model,
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: text },
