@@ -73,26 +73,64 @@ chrome.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 chrome.commands.onCommand.addListener(async (command) => {
-  if (command === 'toggle-extension') {
-    const { settings } = await chrome.storage.local.get('settings');
-    const currentSettings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
-    
-    currentSettings.enabled = !currentSettings.enabled;
-    await chrome.storage.local.set({ settings: currentSettings });
-    await updateContextMenu();
+  if (command === 'run-ask-llm') {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
 
-    const tabs = await chrome.tabs.query({ url: ['http://*/*', 'https://*/*'] });
-    for (const tab of tabs) {
-      if (tab.id) {
+    if (!tab?.id || !tab.url) {
+      console.warn('Cannot run Ask LLM on a tab without ID or URL.', tab);
+      return;
+    }
+
+    // Ensure the extension doesn't run on unsupported pages
+    if (!/^(https?|file):/.test(tab.url)) {
+      console.log(`Cannot run Ask LLM on an unsupported page: ${tab.url}`);
+      return;
+    }
+
+    try {
+      const injectionResults = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: () => window.getSelection()?.toString(),
+      });
+
+      if (chrome.runtime.lastError) {
+        console.error(`Error injecting script: ${chrome.runtime.lastError.message}`);
+        return;
+      }
+
+      if (injectionResults && injectionResults.length > 0 && injectionResults[0].result) {
+        const selectionText = injectionResults[0].result;
+        const { settings } = await chrome.storage.local.get('settings');
+        const currentSettings: ExtensionSettings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
+
+        if (!currentSettings.apiKey) {
+           await ensureAndSendMessage(tab.id, {
+             type: 'SHOW_TOAST',
+             payload: { message: 'Please set your API key in the extension options.', type: 'error' },
+           });
+           return;
+        }
+
+        if (currentSettings.promptMode === 'manual') {
+          await ensureAndSendMessage(tab.id, {
+            type: 'SHOW_INPUT_BOX',
+            payload: { selectionText },
+          });
+        } else {
+          await processLLMRequest(selectionText, tab.id);
+        }
+      } else {
         await ensureAndSendMessage(tab.id, {
           type: 'SHOW_TOAST',
-          payload: {
-            message: `Ask LLM ${currentSettings.enabled ? 'enabled' : 'disabled'}`,
-            type: 'info',
-            duration: 2000,
-          },
+          payload: { message: 'No text selected.', type: 'info', duration: 2000 },
         });
       }
+    } catch (e) {
+      console.error('Failed to execute script or process LLM request:', e);
+       await ensureAndSendMessage(tab.id, {
+         type: 'SHOW_TOAST',
+         payload: { message: `An error occurred: ${String(e)}`, type: 'error' },
+       });
     }
   }
 });

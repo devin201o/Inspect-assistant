@@ -40,12 +40,12 @@
     "128": "icons/icon128.png"
   },
   "commands": {
-    "toggle-extension": {
+    "run-ask-llm": {
       "suggested_key": {
         "default": "Ctrl+Shift+Space",
         "mac": "Command+Shift+Space"
       },
-      "description": "Toggle Ask LLM on/off"
+      "description": "Run Ask LLM on selected text"
     }
   },
   "web_accessible_resources": [
