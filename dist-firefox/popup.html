@@ -4,7 +4,11 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Ask LLM</title>
-  <link rel="stylesheet" href="styles/popup.css">
+  <script type="module" crossorigin src="/popup.js"></script>
+  <link rel="modulepreload" crossorigin href="/modulepreload-polyfill.js">
+  <link rel="modulepreload" crossorigin href="/browser-polyfill.js">
+  <link rel="modulepreload" crossorigin href="/types.js">
+  <link rel="stylesheet" crossorigin href="/popup.css">
 </head>
 <body>
   <div class="popup-container">
@@ -18,6 +22,21 @@
       </label>
     </div>
 
+    <div class="divider"></div>
+
+    <div class="prompt-mode-section">
+      <div class="radio-group">
+        <label>
+          <input type="radio" name="promptMode" value="auto" checked>
+          Auto
+        </label>
+        <label>
+          <input type="radio" name="promptMode" value="manual">
+          Manual
+        </label>
+      </div>
+    </div>
+
     <div class="status" id="status"></div>
 
     <div class="actions">
@@ -26,9 +45,8 @@
 
     <div class="footer">
       <p>Highlight text and right-click to ask your LLM</p>
-      <p class="shortcut">Shortcut: <kbd>Ctrl+Shift+L</kbd></p>
+      <p class="shortcut">Shortcut: <kbd>Ctrl+Shift+Space</kbd></p>
     </div>
   </div>
-  <script type="module" src="./popup.ts"></script>
 </body>
 </html>

@@ -6,19 +6,20 @@ import { viteStaticCopy } from 'vite-plugin-static-copy';
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '');
   const browser = env.VITE_BROWSER || 'chrome';
-  const outDir = `dist-${browser}`;
+  const outDir = `../dist-${browser}`; // Adjusted for the new root
 
   return {
+    root: 'src', // Set the project root to the 'src' directory
     plugins: [
       viteStaticCopy({
         targets: [
           {
-            src: `src/manifest.${browser}.json`,
+            src: `manifest.${browser}.json`, // Path is now relative to 'src'
             dest: '.',
             rename: 'manifest.json',
           },
-          { src: 'src/icons', dest: '.' },
-          { src: 'src/styles', dest: '.' },
+          { src: 'icons', dest: '.' },     // Path is now relative to 'src'
+          { src: 'styles', dest: '.' },   // Path is now relative to 'src'
         ],
       }),
     ],
@@ -27,6 +28,7 @@ export default defineConfig(({ mode }) => {
       emptyOutDir: true,
       rollupOptions: {
         input: {
+          // Paths should be relative to the new root 'src'
           background: resolve(__dirname, 'src/background.ts'),
           content: resolve(__dirname, 'src/content.ts'),
           popup: resolve(__dirname, 'src/popup.html'),
@@ -35,7 +37,7 @@ export default defineConfig(({ mode }) => {
         output: {
           entryFileNames: '[name].js',
           chunkFileNames: '[name].js',
-          assetFileNames: '[name].[ext]',
+          assetFileNames: '[name].[ext]', // This should now work correctly
           format: 'es',
         },
       },
@@ -44,6 +46,7 @@ export default defineConfig(({ mode }) => {
     },
     resolve: {
       alias: {
+        // The alias path needs to resolve correctly from the new root
         'webextension-polyfill': resolve(__dirname, 'node_modules/webextension-polyfill/dist/browser-polyfill.js'),
       },
     },
