@@ -1,0 +1,65 @@
+*   [33me0aa24c[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmain[m[33m, [m[1;31morigin/main[m[33m, [m[1;31morigin/HEAD[m[33m, [m[1;32mbackup/main-before-reset[m[33m)[m Merge pull request #12 from devin201o/feat/shortcut-ask-llm
+[31m|[m[32m\[m  
+[31m|[m * [33mfb8c526[m[33m ([m[1;31morigin/feat/shortcut-ask-llm[m[33m)[m Feat: Change keyboard shortcut to trigger 'Ask LLM'
+[31m|[m[31m/[m  
+*   [33mae3ff09[m Merge pull request #11 from devin201o/fix/firefox-build-path
+[33m|[m[34m\[m  
+[33m|[m * [33m45ec3be[m[33m ([m[1;31morigin/fix/firefox-build-path[m[33m, [m[1;32mfix/firefox-build-path[m[33m)[m fix(build): Correct Firefox build path for HTML files
+[33m|[m * [33md7cc7aa[m[33m ([m[1;31morigin/feat/firefox-compatibility[m[33m, [m[1;32mfeat/firefox-compatibility[m[33m)[m feat: Add Firefox compatibility and fix build process
+[33m|[m * [33m4514a17[m feat: Add Firefox compatibility
+[33m|[m * [33m619000e[m feat: Add Firefox compatibility
+[33m|[m * [33m4aa3c7e[m feat: Add Firefox compatibility
+[33m|[m[33m/[m  
+[33m|[m * [33m40e9960[m[33m ([m[1;31morigin/firefox-build-fix[m[33m, [m[1;32mfirefox-build-fix[m[33m)[m This commit refactors the build process to provide explicit and robust support for both Chrome and Firefox.
+[33m|[m * [33m9472c9e[m This commit adds support for building the extension for Firefox.
+[33m|[m[33m/[m  
+*   [33m36453da[m Merge pull request #10 from devin201o/fix-pdf-notification
+[36m|[m[1;31m\[m  
+[36m|[m * [33m1898e8c[m[33m ([m[1;31morigin/fix-pdf-notification[m[33m, [m[1;32mfix-pdf-notification[m[33m)[m refactor: Remove PDF notification feature
+[36m|[m * [33m9ab1f63[m fix: Resolve race condition and improve PDF notifications
+[36m|[m * [33m772ecba[m fix(pdf): Use system notification and correct check order
+[36m|[m * [33m8845f43[m fix(pdf): Use system notification for PDF files
+[36m|[m[36m/[m  
+*   [33ma301e5f[m Merge pull request #9 from devin201o/fix-stale-content-script
+[1;32m|[m[1;33m\[m  
+[1;32m|[m * [33me515ea9[m[33m ([m[1;31morigin/fix-stale-content-script[m[33m)[m Feat: Add PDF check and fix stale content scripts
+[1;32m|[m * [33m797026d[m[33m ([m[1;32mfix-stale-content-script[m[33m)[m Fix: Implement heartbeat to handle stale content scripts
+[1;32m|[m[1;32m/[m  
+* [33m0f0b4d3[m Added small tweak to appended manual prompt
+*   [33m1d93e2b[m Merge pull request #8 from devin201o/feat/manual-mode-concise
+[1;34m|[m[1;35m\[m  
+[1;34m|[m * [33mf221a04[m[33m ([m[1;31morigin/feat/manual-mode-concise[m[33m)[m feat: Append concise instruction to manual prompts
+[1;34m|[m[1;34m/[m  
+* [33mc0856fa[m Update readme.md
+*   [33m2f6266e[m Merge pull request #7 from devin201o/feature/prompt-mode
+[1;36m|[m[31m\[m  
+[1;36m|[m * [33m8eacd5a[m[33m ([m[1;31morigin/feature/prompt-mode[m[33m)[m Feat: Add on-page manual prompt mode and adjust popup spacing
+[1;36m|[m * [33m8cf5b18[m[33m ([m[1;32mfeature/prompt-mode[m[33m)[m Feat: Add on-page manual prompt mode
+[1;36m|[m * [33mce85337[m Feat: Add manual prompt mode
+[1;36m|[m[1;36m/[m  
+*   [33ma03a8ca[m Merge pull request #6 from devin201o/fix-toast-timeout-bug
+[32m|[m[33m\[m  
+[32m|[m * [33m0f58a47[m[33m ([m[1;31morigin/fix-toast-timeout-bug[m[33m)[m fix(content): Clear copy button timeout on toast dismissal
+[32m|[m[32m/[m  
+*   [33m5029aa4[m[33m ([m[1;32mFix-shortcut-accessibility-issue[m[33m)[m Merge pull request #5 from devin201o/fix-api-error-toast
+[34m|[m[35m\[m  
+[34m|[m * [33m3a5f1b2[m[33m ([m[1;31morigin/fix-api-error-toast[m[33m)[m Fix: Display specific API errors in toast notifications
+* [35m|[m   [33m14b3932[m Merge pull request #4 from devin201o/Fix-shortcut-accessibility-issue
+[35m|[m[1;31m\[m [35m\[m  
+[35m|[m [1;31m|[m[35m/[m  
+[35m|[m[35m/[m[1;31m|[m   
+[35m|[m * [33m0f63396[m[33m ([m[1;31morigin/Fix-shortcut-accessibility-issue[m[33m)[m Changed the shortcut from CTRL+SHIFT+L to CTRL+SHIFT+SPACE
+* [1;31m|[m [33m1bd90da[m Create readme.md
+* [1;31m|[m [33m9a17161[m Merge pull request #3 from devin201o/prompt-engineering
+[1;32m|[m[1;31m\[m[1;31m|[m 
+[1;32m|[m * [33m136c889[m[33m ([m[1;31morigin/prompt-engineering[m[33m, [m[1;32mprompt-engineering[m[33m)[m Edited the prompt to increase readability and effectiveness of responses.
+[1;32m|[m[1;32m/[m  
+*   [33mf156e98[m Merge pull request #2 from devin201o/fix-toast-error
+[1;34m|[m[1;35m\[m  
+[1;34m|[m * [33m2e38f1b[m[33m ([m[1;31morigin/fix-toast-error[m[33m)[m Fix: Prevent crash on messaging to invalid tabs
+[1;34m|[m[1;34m/[m  
+*   [33mbb6cdfa[m Merge pull request #1 from devin201o/fix-module-loading-and-improve-build
+[1;36m|[m[31m\[m  
+[1;36m|[m * [33m1c4fff4[m[33m ([m[1;31morigin/fix-module-loading-and-improve-build[m[33m)[m Fix: Resolve module loading and connection errors
+[1;36m|[m[1;36m/[m  
+* [33me70bae5[m Initial commit
