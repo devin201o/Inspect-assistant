@@ -70,26 +70,64 @@ browser.contextMenus.onClicked.addListener(async (info, tab) => {
 });
 
 browser.commands.onCommand.addListener(async (command) => {
-  if (command === 'toggle-extension') {
-    const { settings } = await browser.storage.local.get('settings');
-    const currentSettings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
-    
-    currentSettings.enabled = !currentSettings.enabled;
-    await browser.storage.local.set({ settings: currentSettings });
-    await updateContextMenu();
+  if (command === 'execute-ask-llm') {
+    const [tab] = await browser.tabs.query({ active: true, currentWindow: true });
 
-    const tabs = await browser.tabs.query({ url: ['http://*/*', 'https://*/*'] });
-    for (const tab of tabs) {
-      if (tab.id) {
-        await ensureAndSendMessage(tab.id, {
-          type: 'SHOW_TOAST',
-          payload: {
-            message: `Ask LLM ${currentSettings.enabled ? 'enabled' : 'disabled'}`,
-            type: 'info',
-            duration: 2000,
-          },
-        });
+    if (!tab?.id || !tab.url) {
+      return;
+    }
+
+    // Ensure the extension doesn't run on unsupported pages like chrome://
+    if (!/^(https?|file):/.test(tab.url)) {
+      return;
+    }
+
+    const { settings } = await browser.storage.local.get('settings');
+    const currentSettings: ExtensionSettings = { ...DEFAULT_SETTINGS, ...(settings || {}) };
+
+    if (!currentSettings.enabled) {
+      // Do nothing if the extension is disabled.
+      return;
+    }
+
+    if (!currentSettings.apiKey) {
+      await ensureAndSendMessage(tab.id, {
+        type: 'SHOW_TOAST',
+        payload: { message: 'Please set your API key in the extension options.', type: 'error' },
+      });
+      return;
+    }
+
+    try {
+      const injectionResults = await browser.scripting.executeScript<[], string>({
+        target: { tabId: tab.id },
+        func: () => window.getSelection()?.toString() || '',
+      });
+
+      if (injectionResults && injectionResults[0]) {
+        const selectionText = injectionResults[0].result;
+        if (selectionText && selectionText.trim()) {
+          if (currentSettings.promptMode === 'manual') {
+            await ensureAndSendMessage(tab.id, {
+              type: 'SHOW_INPUT_BOX',
+              payload: { selectionText },
+            });
+          } else {
+            await processLLMRequest(selectionText, tab.id);
+          }
+        } else {
+          await ensureAndSendMessage(tab.id, {
+            type: 'SHOW_TOAST',
+            payload: { message: 'Please select some text first.', type: 'info' },
+          });
+        }
       }
+    } catch (e) {
+      console.error('Failed to execute command:', e);
+      await ensureAndSendMessage(tab.id, {
+        type: 'SHOW_TOAST',
+        payload: { message: 'Could not access page content. Try on a different page.', type: 'error' },
+      });
     }
   }
 });
