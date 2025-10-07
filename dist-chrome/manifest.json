@@ -52,7 +52,9 @@
     {
       "resources": [
         "styles/*",
-        "*.js"
+        "*.js",
+        "popup.html",
+        "options.html"
       ],
       "matches": [
         "<all_urls>"

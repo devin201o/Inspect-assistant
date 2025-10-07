@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Ask LLM</title>
+  <link rel="stylesheet" href="styles/popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <h1>Ask LLM</h1>
+
+    <div class="toggle-section">
+      <label class="toggle-label">
+        <input type="checkbox" id="enabledToggle" />
+        <span class="toggle-slider"></span>
+        <span class="toggle-text">Extension Enabled</span>
+      </label>
+    </div>
+
+    <div class="status" id="status"></div>
+
+    <div class="actions">
+      <button id="openOptions" class="btn-secondary">Settings</button>
+    </div>
+
+    <div class="footer">
+      <p>Highlight text and right-click to ask your LLM</p>
+      <p class="shortcut">Shortcut: <kbd>Ctrl+Shift+L</kbd></p>
+    </div>
+  </div>
+  <script type="module" src="./popup.ts"></script>
+</body>
+</html>

@@ -1,21 +1,26 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { JSDOM } from 'jsdom';
+import browser from 'webextension-polyfill';
 
-// Mock the chrome API and other browser features
-const chromeMock = {
-  runtime: {
-    onMessage: {
-      addListener: vi.fn(),
+// Mock the entire webextension-polyfill module
+vi.mock('webextension-polyfill', () => ({
+  default: {
+    runtime: {
+      onMessage: {
+        addListener: vi.fn(),
+      },
+      sendMessage: vi.fn(),
+      getURL: (path: string) => `mock-extension-url/${path}`,
+    },
+    storage: {
+      local: {
+        get: vi.fn().mockResolvedValue({ settings: {} }),
+        set: vi.fn().mockResolvedValue(undefined),
+      },
     },
   },
-  storage: {
-    local: {
-      get: vi.fn().mockResolvedValue({ settings: {} }),
-    },
-  },
-};
+}));
 
-vi.stubGlobal('chrome', chromeMock);
 vi.stubGlobal('navigator', {
   clipboard: {
     writeText: vi.fn().mockResolvedValue(undefined),
@@ -23,7 +28,7 @@ vi.stubGlobal('navigator', {
 });
 
 describe('Content Script Toasts', () => {
-  let messageListener;
+  let messageListener: (message: any, sender: any, sendResponse: any) => Promise<void> | void;
 
   beforeEach(async () => {
     // Use fake timers to control setTimeout and clearTimeout
@@ -36,16 +41,16 @@ describe('Content Script Toasts', () => {
     vi.stubGlobal('HTMLDivElement', dom.window.HTMLDivElement);
 
     // Reset mocks
-    chrome.runtime.onMessage.addListener.mockClear();
-    chrome.storage.local.get.mockResolvedValue({ settings: {} });
+    vi.mocked(browser.runtime.onMessage.addListener).mockClear();
+    vi.mocked(browser.storage.local.get).mockResolvedValue({ settings: {} });
 
     // Dynamically import the content script to re-run its setup logic for each test.
     // The cache-busting query `?v=` ensures the module is re-evaluated.
     await import('./content.ts?v=' + Date.now());
 
     // The script adds a listener, so we grab it from our mock.
-    if (chrome.runtime.onMessage.addListener.mock.calls.length > 0) {
-      messageListener = chrome.runtime.onMessage.addListener.mock.calls[0][0];
+    if (vi.mocked(browser.runtime.onMessage.addListener).mock.calls.length > 0) {
+      messageListener = vi.mocked(browser.runtime.onMessage.addListener).mock.calls[0][0];
     }
   });
 

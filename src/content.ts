@@ -1,3 +1,4 @@
+import browser from 'webextension-polyfill';
 import type { ToastOptions } from './types';
 
 // --- STATE ---
@@ -14,28 +15,22 @@ document.addEventListener('mousemove', (event) => {
   lastMousePosition = { x: event.clientX, y: event.clientY };
 });
 
-chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+browser.runtime.onMessage.addListener(async (message) => {
   if (message.type === 'SHOW_TOAST') {
-    (async () => {
-      await showToast(message.payload);
-      sendResponse({ success: true });
-    })();
-    return true;
+    await showToast(message.payload);
+    return { success: true };
   }
 
   if (message.type === 'SHOW_INPUT_BOX') {
     showInputBox(message.payload.selectionText);
-    sendResponse({ success: true });
-    return false;
+    return { success: true };
   }
 
   if (message.type === 'PING') {
-    sendResponse({ type: 'PONG' });
-    return false; // Not async
+    return { type: 'PONG' };
   }
 
-  sendResponse({ success: true });
-  return false;
+  return { success: true };
 });
 
 // --- INPUT BOX IMPLEMENTATION ---
@@ -51,7 +46,7 @@ function showInputBox(selectionText: string) {
 
   const styleLink = document.createElement('link');
   styleLink.rel = 'stylesheet';
-  styleLink.href = chrome.runtime.getURL('styles/input-box.css');
+  styleLink.href = browser.runtime.getURL('styles/input-box.css');
   shadowRoot.appendChild(styleLink);
 
   const inputBox = document.createElement('div');
@@ -80,7 +75,7 @@ function showInputBox(selectionText: string) {
       e.preventDefault();
       const userPrompt = input.value.trim();
       if (userPrompt) {
-        chrome.runtime.sendMessage({
+        browser.runtime.sendMessage({
           type: 'EXECUTE_MANUAL_PROMPT',
           payload: { selectionText, prompt: userPrompt },
         });
@@ -123,7 +118,7 @@ function handleEscapeForInputBox(e: KeyboardEvent) {
 
 // --- TOAST IMPLEMENTATION ---
 async function showToast(options: ToastOptions) {
-  const result = await chrome.storage.local.get('settings');
+  const result = await browser.storage.local.get('settings');
   const position = result.settings?.toastPosition || options.position || 'bottom-right';
   createToast(options, position);
 }
