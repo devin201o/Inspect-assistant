@@ -70,9 +70,32 @@ function showInputBox(selectionText: string) {
   }
 
   if (rect) {
-    // Position below the selection
-    inputBox.style.left = `${window.scrollX + rect.left}px`;
-    inputBox.style.top = `${window.scrollY + rect.bottom + 5}px`;
+    const boxHeight = inputBox.offsetHeight;
+    const boxWidth = 300; // As defined in input-box.css
+
+    let top = rect.bottom + 5;
+    let left = rect.left;
+
+    // Adjust position to stay within viewport boundaries
+    if (top + boxHeight > window.innerHeight) {
+      // Place above the selection if it overflows below
+      top = rect.top - boxHeight - 5;
+    }
+    if (left + boxWidth > window.innerWidth) {
+      // Align to the right edge if it overflows
+      left = window.innerWidth - boxWidth - 10; // 10px margin
+    }
+
+    // Ensure it's not off-screen at the top or left
+    if (top < 0) {
+      top = 10;
+    }
+    if (left < 0) {
+      left = 10;
+    }
+
+    inputBox.style.left = `${left}px`;
+    inputBox.style.top = `${top}px`;
   } else {
     // Fallback for safety, though should not be common
     inputBox.style.left = '50%';
