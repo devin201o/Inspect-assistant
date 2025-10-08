@@ -10,7 +10,7 @@
   <div class="container">
     <header>
       <h1>Ask LLM Settings</h1>
-      <p>Configure your OpenRouter API key for Google Gemini 2.5 Flash</p>
+      <p>Configure your OpenRouter API key</p>
     </header>
 
     <form id="settingsForm">
@@ -20,7 +20,7 @@
         <div class="form-group">
           <label for="provider">Provider</label>
           <select id="provider" name="provider">
-            <option value="openrouter">OpenRouter (Google Gemini 2.5 Flash)</option>
+            <option value="openrouter">OpenRouter</option>
           </select>
         </div>
 
@@ -45,7 +45,7 @@
             placeholder="https://openrouter.ai/api/v1/chat/completions" 
             readonly
           />
-          <small>Uses Google Gemini 2.5 Flash model via OpenRouter.</small>
+          <small>Automatically set based on provider, but you can customize it.</small>
         </div>
 
         <div class="form-group">
@@ -56,7 +56,7 @@
             name="model" 
             placeholder="google/gemini-2.5-flash" 
           />
-          <small>Specify the model to use from OpenRouter, e.g., "anthropic/claude-3-sonnet".</small>
+          <small>Specify the model to use from OpenRouter, e.g., "Moogle/Gemini-10".</small>
         </div>
       </section>
 
