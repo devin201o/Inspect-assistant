@@ -5,14 +5,8 @@ let currentToast: HTMLDivElement | null = null;
 let toastTimeout: number | null = null;
 let copyTimeout: number | null = null;
 let currentInputBox: HTMLDivElement | null = null;
-let lastMousePosition = { x: 0, y: 0 };
 
 // --- EVENT LISTENERS ---
-
-// Track mouse position to place the input box correctly
-document.addEventListener('mousemove', (event) => {
-  lastMousePosition = { x: event.clientX, y: event.clientY };
-});
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === 'SHOW_TOAST') {
@@ -67,10 +61,24 @@ function showInputBox(selectionText: string) {
   inputBox.appendChild(input);
   inputBox.appendChild(helpText);
   shadowRoot.appendChild(inputBox);
+  
+   // Position the box near the selection
+  const selection = window.getSelection();
+  let rect;
+  if (selection && selection.rangeCount > 0) {
+    rect = selection.getRangeAt(0).getBoundingClientRect();
+  }
 
-  // Position the box near the cursor
-  inputBox.style.left = `${lastMousePosition.x}px`;
-  inputBox.style.top = `${lastMousePosition.y}px`;
+  if (rect) {
+    // Position below the selection
+    inputBox.style.left = `${window.scrollX + rect.left}px`;
+    inputBox.style.top = `${window.scrollY + rect.bottom + 5}px`;
+  } else {
+    // Fallback for safety, though should not be common
+    inputBox.style.left = '50%';
+    inputBox.style.top = '50%';
+    inputBox.style.transform = 'translate(-50%, -50%)';
+  }
 
   currentInputBox = container;
 
@@ -97,7 +105,7 @@ function showInputBox(selectionText: string) {
     document.addEventListener('click', handleDocumentClickForInputBox);
   }, 0);
 
-  input.focus();
+  input.focus({preventScroll: true});
 }
 
 function dismissInputBox() {
