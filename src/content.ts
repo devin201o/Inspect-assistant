@@ -194,8 +194,9 @@ function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-ri
       color: #333;
       animation: slideIn 0.3s ease-out;
       display: flex;
-      align-items: flex-start;
+      
       gap: 12px;
+      max-height: 50vh;
     }
 
     @keyframes slideIn {
@@ -212,7 +213,7 @@ function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-ri
     .toast-success { border-left: 4px solid #10b981; }
     .toast-error { border-left: 4px solid #ef4444; }
     .toast-info { border-left: 4px solid #3b82f6; }
-    .toast-content { flex: 1; word-wrap: break-word; white-space: pre-wrap; }
+    .toast-content { flex: 1; word-wrap: break-word; white-space: pre-wrap; overflow-y: auto; min-height: 0; }
     .toast-actions { display: flex; gap: 8px; flex-shrink: 0; }
     .toast-btn { background: none; border: none; cursor: pointer; padding: 4px 8px; border-radius: 4px; font-size: 12px; transition: background 0.2s; }
     .toast-btn:hover { background: #f3f4f6; }
