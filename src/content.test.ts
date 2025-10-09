@@ -7,6 +7,7 @@ const chromeMock = {
     onMessage: {
       addListener: vi.fn(),
     },
+    getURL: vi.fn((path) => path),
   },
   storage: {
     local: {

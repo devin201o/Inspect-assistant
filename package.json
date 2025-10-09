@@ -20,6 +20,8 @@
     "@types/dompurify": "^3.0.5",
     "@types/marked": "^5.0.2",
     "dompurify": "^3.2.7",
-    "marked": "^16.4.0"
+    "katex": "^0.16.23",
+    "marked": "^16.4.0",
+    "marked-katex-extension": "^5.1.5"
   }
 }

@@ -52,6 +52,7 @@
     {
       "resources": [
         "styles/*",
+        "styles/fonts/*",
         "*.js"
       ],
       "matches": [

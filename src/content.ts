@@ -1,6 +1,9 @@
 import { marked } from 'marked';
+import markedKatex from 'marked-katex-extension';
 import DOMPurify from 'dompurify';
 import type { ToastOptions } from './types';
+
+marked.use(markedKatex({ throwOnError: false }));
 
 // --- STATE ---
 let currentToast: HTMLDivElement | null = null;
@@ -175,6 +178,12 @@ function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-ri
   `;
 
   const shadowRoot = container.attachShadow({ mode: 'open' });
+
+  // Add KaTeX stylesheet to Shadow DOM
+  const katexStyleLink = document.createElement('link');
+  katexStyleLink.rel = 'stylesheet';
+  katexStyleLink.href = chrome.runtime.getURL('styles/katex.min.css');
+  shadowRoot.appendChild(katexStyleLink);
 
   const toast = document.createElement('div');
   toast.className = `ask-llm-toast toast-${type}`;
