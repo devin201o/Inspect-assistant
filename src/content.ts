@@ -1,3 +1,5 @@
+import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 import type { ToastOptions } from './types';
 
 // --- STATE ---
@@ -225,7 +227,9 @@ function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-ri
 
   const contentDiv = document.createElement('div');
   contentDiv.className = 'toast-content';
-  contentDiv.textContent = message;
+  // Parse markdown and sanitize it before setting as innerHTML
+  const dirtyHtml = marked.parse(message);
+  contentDiv.innerHTML = DOMPurify.sanitize(dirtyHtml as string);
 
   const actionsDiv = document.createElement('div');
   actionsDiv.className = 'toast-actions';
