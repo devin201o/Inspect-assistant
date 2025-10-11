@@ -21,16 +21,12 @@
     <div class="divider"></div>
 
     <div class="prompt-mode-section">
-      <div class="radio-group">
-        <label>
-          <input type="radio" name="promptMode" value="auto" checked>
-          Auto
-        </label>
-        <label>
-          <input type="radio" name="promptMode" value="manual">
-          Manual
-        </label>
-      </div>
+      <label for="promptModeSelect">Prompt Mode:</label>
+      <select id="promptModeSelect">
+        <option value="auto">Auto</option>
+        <option value="concise">Concise</option>
+        <option value="manual">Manual</option>
+      </select>
     </div>
 
     <div class="status" id="status"></div>

@@ -191,7 +191,7 @@ async function callLLM(text: string, settings: ExtensionSettings, customPrompt?:
 
   const systemPrompt = customPrompt
     ? `${customPrompt} ${MANUAL_MODE_PROMPT_APPENDIX}`
-    : DEFAULT_PROMPTS.conciseAcademic;
+    : DEFAULT_PROMPTS[settings.promptMode === 'concise' ? 'concise' : 'auto'];
 
   const requestBody = {
     model: settings.model,
