@@ -7,6 +7,8 @@ export interface ExtensionSettings {
   toastPosition: 'bottom-left' | 'bottom-right';
   provider: 'openrouter' | 'custom';
   promptMode: 'auto' | 'manual';
+  discreteMode: boolean;
+  discreteModeOpacity: number;
 }
 
 export interface LLMResponse {
@@ -31,4 +33,6 @@ export const DEFAULT_SETTINGS: ExtensionSettings = {
   toastPosition: 'bottom-right',
   provider: 'openrouter',
   promptMode: 'auto',
+  discreteMode: false,
+  discreteModeOpacity: 0.85,
 };

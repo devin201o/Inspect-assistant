@@ -11,6 +11,10 @@ const testBtn = document.getElementById('testBtn') as HTMLButtonElement;
 const statusDiv = document.getElementById('status') as HTMLDivElement;
 const endpointGroup = document.getElementById('endpointGroup') as HTMLDivElement;
 const promptModeRadios = document.querySelectorAll<HTMLInputElement>('input[name="promptMode"]');
+const discreteModeToggle = document.getElementById('discreteMode') as HTMLInputElement;
+const opacityGroup = document.getElementById('opacityGroup') as HTMLDivElement;
+const opacitySlider = document.getElementById('discreteModeOpacity') as HTMLInputElement;
+const opacityValue = document.getElementById('opacityValue') as HTMLSpanElement;
 
 const ENDPOINTS = {
   openrouter: 'https://openrouter.ai/api/v1/chat/completions',
@@ -26,6 +30,9 @@ async function loadSettings() {
   modelInput.value = settings.model;
   toastPositionSelect.value = settings.toastPosition;
   toastDurationInput.value = (settings.toastDuration / 1000).toString();
+  discreteModeToggle.checked = settings.discreteMode;
+  opacitySlider.value = settings.discreteModeOpacity.toString();
+  opacityValue.textContent = settings.discreteModeOpacity.toString();
 
   promptModeRadios.forEach(radio => {
     if (radio.value === settings.promptMode) {
@@ -42,7 +49,18 @@ providerSelect.addEventListener('change', () => {
     apiEndpointInput.value = ENDPOINTS[provider];
   }
   updateEndpointVisibility();
+  updateOpacityGroupVisibility();
 });
+
+discreteModeToggle.addEventListener('change', updateOpacityGroupVisibility);
+
+opacitySlider.addEventListener('input', () => {
+  opacityValue.textContent = opacitySlider.value;
+});
+
+function updateOpacityGroupVisibility() {
+  opacityGroup.style.display = discreteModeToggle.checked ? 'block' : 'none';
+}
 
 function updateEndpointVisibility() {
   if (providerSelect.value === 'custom') {
@@ -78,6 +96,8 @@ form.addEventListener('submit', async (e) => {
     toastPosition: toastPositionSelect.value as 'bottom-left' | 'bottom-right',
     toastDuration: duration * 1000,
     promptMode: selectedPromptMode,
+    discreteMode: discreteModeToggle.checked,
+    discreteModeOpacity: parseFloat(opacitySlider.value),
   };
 
   await chrome.storage.local.set({ settings });

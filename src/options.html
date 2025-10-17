@@ -102,6 +102,27 @@
         </div>
       </section>
 
+      <section class="section">
+        <h2>Discrete Mode</h2>
+        <div class="form-group form-group-toggle">
+          <label for="discreteMode">Enable Discrete Mode</label>
+          <div class="toggle-switch">
+            <input type="checkbox" id="discreteMode" name="discreteMode">
+            <label class="slider" for="discreteMode"></label>
+          </div>
+          <small>Make the response box semi-transparent.</small>
+        </div>
+
+        <div class="form-group" id="opacityGroup" style="display: none;">
+          <label for="discreteModeOpacity">Opacity Level</label>
+          <div class="slider-container">
+            <input type="range" id="discreteModeOpacity" name="discreteModeOpacity" min="0.1" max="1" step="0.05">
+            <span id="opacityValue">0.85</span>
+          </div>
+          <small>Adjust the transparency of the response box.</small>
+        </div>
+      </section>
+
       <div class="form-actions">
         <button type="submit" class="btn-primary">Save Settings</button>
         <button type="button" id="testBtn" class="btn-secondary">Test Connection</button>

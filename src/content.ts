@@ -155,11 +155,14 @@ function handleEscapeForInputBox(e: KeyboardEvent) {
 // --- TOAST IMPLEMENTATION ---
 async function showToast(options: ToastOptions) {
   const result = await chrome.storage.local.get('settings');
-  const position = result.settings?.toastPosition || options.position || 'bottom-right';
-  createToast(options, position);
+  const settings = result.settings;
+  const position = settings?.toastPosition || options.position || 'bottom-right';
+  const discreteMode = settings?.discreteMode || false;
+  const opacity = settings?.discreteModeOpacity || 1;
+  createToast(options, position, discreteMode, opacity);
 }
 
-function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-right') {
+function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-right', discreteMode: boolean, opacity: number) {
   dismissToast();
   const { message, type, duration = 20000 } = options;
 
@@ -170,6 +173,7 @@ function createToast(options: ToastOptions, position: 'bottom-left' | 'bottom-ri
     ${position === 'bottom-left' ? 'left: 20px;' : 'right: 20px;'}
     bottom: 20px;
     z-index: 2147483647;
+    opacity: ${discreteMode ? opacity : 1};
   `;
 
   const shadowRoot = container.attachShadow({ mode: 'open' });
